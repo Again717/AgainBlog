@@ -16,11 +16,46 @@
     <header class="header" :class="{ hidden: isHeaderHidden }">
       <div class="header-container">
         <nav class="nav-menu-vertical right-aligned">
+          <!-- 用户头像（登录后显示） -->
+          <div v-if="userStore.token && userStore.userInfo" class="user-avatar-nav" @mouseenter="showUserMenu = true" @mouseleave="showUserMenu = false">
+            <div class="avatar-circle">
+              {{ userStore.userInfo.username?.charAt(0).toUpperCase() || 'U' }}
+            </div>
+            <!-- 下拉菜单 -->
+            <transition name="fade-menu">
+              <div v-if="showUserMenu" class="user-menu-dropdown">
+                <div class="menu-header">
+                  <div class="menu-avatar">{{ userStore.userInfo.username?.charAt(0).toUpperCase() || 'U' }}</div>
+                  <div class="menu-user-info">
+                    <div class="menu-username">{{ userStore.userInfo.username }}</div>
+                    <div class="menu-email">{{ userStore.userInfo.email || '' }}</div>
+                  </div>
+                </div>
+                <div class="menu-divider"></div>
+                <RouterLink to="/profile" class="menu-item" @click="showUserMenu = false">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <span>{{ languageStore.isZh ? '个人中心' : 'Profile' }}</span>
+                </RouterLink>
+                <div class="menu-divider"></div>
+                <button class="menu-item logout-item" @click="handleLogout">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                  </svg>
+                  <span>{{ languageStore.isZh ? '退出登录' : 'Logout' }}</span>
+                </button>
+              </div>
+            </transition>
+          </div>
           <RouterLink to="/" class="nav-item">{{ languageStore.isZh ? '首页' : 'Home' }}</RouterLink>
           <RouterLink to="/stories" class="nav-item">{{ languageStore.isZh ? '旅行故事' : 'Stories' }}</RouterLink>
           <RouterLink to="/tips" class="nav-item">{{ languageStore.isZh ? '攻略分享' : 'Tips' }}</RouterLink>
           <RouterLink to="/community" class="nav-item">{{ languageStore.isZh ? '社区' : 'Community' }}</RouterLink>
-          <RouterLink to="/login" class="nav-item">{{ languageStore.isZh ? '登录' : 'Login' }}</RouterLink>
+          <RouterLink v-if="!userStore.token" to="/login" class="nav-item">{{ languageStore.isZh ? '登录' : 'Login' }}</RouterLink>
           <button class="nav-item theme-switch" @click="themeStore.toggleTheme()" :title="themeStore.isDark ? (languageStore.isZh ? '切换到白天模式' : 'Switch to Light Mode') : (languageStore.isZh ? '切换到夜间模式' : 'Switch to Dark Mode')">
             <svg v-if="themeStore.isDark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="5"></circle>
@@ -71,17 +106,21 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import WelcomeModal from './components/WelcomeModal.vue'
 import { useLanguageStore } from './stores/useLanguageStore'
 import { useThemeStore } from './stores/useThemeStore'
+import { useUserStore } from './stores/useUserStore'
 
 const route = useRoute()
+const router = useRouter()
 const showWelcome = ref(false)
 const languageStore = useLanguageStore()
 const themeStore = useThemeStore()
+const userStore = useUserStore()
 const isHeaderHidden = ref(false)
 const showBackToTop = ref(false)
+const showUserMenu = ref(false)
 
 // 检查当前路由是否是社区页面
 const isCommunityPage = computed(() => route.path === '/community')
@@ -125,6 +164,12 @@ onUnmounted(() => {
 const handleWelcomeClose = () => {
   showWelcome.value = false
   localStorage.setItem('hasSeenWelcome', 'true')
+}
+
+const handleLogout = () => {
+  userStore.clearUser()
+  showUserMenu.value = false
+  router.push('/')
 }
 </script>
 
@@ -502,6 +547,156 @@ body.dark-theme {
 .nav-item.theme-switch::after,
 .nav-item.lang-switch::after {
   display: none;
+}
+
+/* 用户头像导航 */
+.user-avatar-nav {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.avatar-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.avatar-circle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+/* 用户下拉菜单 */
+.user-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 240px;
+  background: var(--bg-color, rgba(255, 255, 255, 0.95));
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.3));
+  padding: 1rem 0;
+  z-index: 1000;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.menu-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem 1rem;
+}
+
+.menu-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.menu-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-username {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-color, #000000);
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-email {
+  font-size: 0.8rem;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.6));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-divider {
+  height: 1px;
+  background: var(--border-color, rgba(0, 0, 0, 0.1));
+  margin: 0.5rem 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-color, #000000);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: var(--bg-secondary, rgba(0, 0, 0, 0.05));
+}
+
+.menu-item svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.menu-item.logout-item {
+  color: #ef4444;
+}
+
+.menu-item.logout-item:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.fade-menu-enter-active,
+.fade-menu-leave-active {
+  transition: all 0.2s ease;
+}
+
+.fade-menu-enter-from,
+.fade-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 
 .app.no-background {

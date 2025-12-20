@@ -31,6 +31,7 @@ app.use(express.json()); // 解析 JSON 请求体
 const authRoutes = require('./routes/auth');
 const articleRoutes = require('./routes/articles');
 const postRoutes = require('./routes/posts');
+const carouselRoutes = require('./routes/carousel');
 
 // 设置根路由
 app.get('/', (req, res) => {
@@ -45,6 +46,9 @@ app.use('/api/articles', articleRoutes);
 
 // 挂载动态路由
 app.use('/api/posts', postRoutes);
+
+// 挂载轮播图路由
+app.use('/api/carousel', carouselRoutes);
 
 // 服务器端口
 const PORT = process.env.PORT || 3000;

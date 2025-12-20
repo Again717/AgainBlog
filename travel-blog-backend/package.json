@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "init-db": "node scripts/init-database.js"
+    "init-db": "node scripts/init-database.js",
+    "init-carousel": "node scripts/init-carousel.js",
+    "create-admin": "node scripts/create-admin.js"
   },
   "keywords": [
     "travel",

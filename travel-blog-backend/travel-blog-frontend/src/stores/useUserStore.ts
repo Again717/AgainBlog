@@ -3,6 +3,8 @@ import { defineStore } from 'pinia'
 interface UserInfo {
   id: string
   username: string
+  email?: string
+  role?: string
 }
 
 export const useUserStore = defineStore('user', {
