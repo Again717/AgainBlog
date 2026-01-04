@@ -78,6 +78,105 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 });
 
+
+// POST /api/posts/update/:id - 更新动态（需要认证）
+router.post('/update/:id', (req, res, next) => {
+    console.log('UPDATE route hit:', req.params.id, req.method, req.path);
+    next();
+}, authMiddleware, async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const userId = req.user?.id || req.user?._id;
+        const { content, images } = req.body;
+
+        if (!content || content.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                message: '动态内容不能为空'
+            });
+        }
+
+        const post = await Post.findById(postId);
+        if (!post) {
+            return res.status(404).json({
+                success: false,
+                message: '动态不存在'
+            });
+        }
+
+        // 检查是否是动态的作者
+        if (post.author.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: '没有权限编辑此动态'
+            });
+        }
+
+        // 更新动态
+        post.content = content.trim();
+        post.images = images || [];
+        await post.save();
+
+        const updatedPost = await Post.findById(postId)
+            .populate('author', 'username email avatar')
+            .populate('likes', 'username')
+            .populate('favorites', 'username')
+            .populate('comments.user', 'username avatar');
+
+        res.json({
+            success: true,
+            message: '动态更新成功',
+            data: updatedPost
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: '更新动态失败',
+            error: error.message
+        });
+    }
+});
+
+// POST /api/posts/delete/:id - 删除动态（需要认证）
+router.post('/delete/:id', (req, res, next) => {
+    console.log('DELETE route hit:', req.params.id, req.method, req.path);
+    next();
+}, authMiddleware, async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const userId = req.user?.id || req.user?._id;
+
+        const post = await Post.findById(postId);
+        if (!post) {
+            return res.status(404).json({
+                success: false,
+                message: '动态不存在'
+            });
+        }
+
+        // 检查是否是动态的作者
+        if (post.author.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: '没有权限删除此动态'
+            });
+        }
+
+        await Post.findByIdAndDelete(postId);
+
+        res.json({
+            success: true,
+            message: '动态删除成功'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: '删除动态失败',
+            error: error.message
+        });
+    }
+});
+
 // POST /api/posts/:id/like - 点赞/取消点赞动态（需要认证）
 router.post('/:id/like', authMiddleware, async (req, res) => {
     try {

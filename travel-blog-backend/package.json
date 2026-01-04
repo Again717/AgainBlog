@@ -8,7 +8,10 @@
     "dev": "nodemon app.js",
     "init-db": "node scripts/init-database.js",
     "init-carousel": "node scripts/init-carousel.js",
-    "create-admin": "node scripts/create-admin.js"
+    "create-admin": "node scripts/create-admin.js",
+    "migrate-avatars": "node scripts/migrate-avatars.js",
+    "assign-default-avatars": "node scripts/assign-default-avatars.js",
+    "assign-admin-avatar": "node scripts/assign-admin-avatar.js"
   },
   "keywords": [
     "travel",

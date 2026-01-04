@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const User = require('../models/User');
+const authMiddleware = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -307,12 +308,137 @@ router.post('/login', async (req, res) => {
                 id: user._id,
                 username: user.username,
                 email: user.email,
+                avatar: user.avatar || '',
                 role: user.role || 'user'
             }
         });
     } catch (error) {
         res.status(400).json({
             message: '登录失败，请稍后重试',
+            error: error.message
+        });
+    }
+});
+
+// 更新用户资料（需要认证）
+router.put('/profile', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user?.id || req.user?._id;
+        const { username, email, bio, avatar } = req.body;
+
+        if (!userId) {
+            return res.status(401).json({
+                message: '未授权，请先登录'
+            });
+        }
+
+        // 检查用户名和邮箱是否已被其他用户使用
+        if (username || email) {
+            const existingUser = await User.findOne({
+                $and: [
+                    { _id: { $ne: userId } },
+                    {
+                        $or: [
+                            username ? { username: username } : {},
+                            email ? { email: email } : {}
+                        ]
+                    }
+                ]
+            });
+
+            if (existingUser) {
+                return res.status(400).json({
+                    message: '用户名或邮箱已被使用'
+                });
+            }
+        }
+
+        // 更新用户资料
+        const updateData = {};
+        if (username) updateData.username = username;
+        if (email) updateData.email = email;
+        if (bio !== undefined) updateData.bio = bio;
+        if (avatar !== undefined) updateData.avatar = avatar;
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            updateData,
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({
+                message: '用户不存在'
+            });
+        }
+
+        // 生成新的JWT token（如果用户名或邮箱有变更）
+        let newToken = null;
+        if (username || email) {
+            newToken = jwt.sign(
+                {
+                    id: updatedUser._id,
+                    username: updatedUser.username
+                },
+                'your_jwt_secret',
+                {
+                    expiresIn: '7d'
+                }
+            );
+        }
+
+        res.json({
+            message: '资料更新成功',
+            user: {
+                id: updatedUser._id,
+                username: updatedUser.username,
+                email: updatedUser.email,
+                avatar: updatedUser.avatar || '',
+                role: updatedUser.role || 'user'
+            },
+            token: newToken
+        });
+    } catch (error) {
+        console.error('更新用户资料失败:', error);
+        res.status(500).json({
+            message: '更新失败，请稍后重试',
+            error: error.message
+        });
+    }
+});
+
+// 获取当前用户信息（需要认证）
+router.get('/me', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user?.id || req.user?._id;
+
+        if (!userId) {
+            return res.status(401).json({
+                message: '未授权，请先登录'
+            });
+        }
+
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                message: '用户不存在'
+            });
+        }
+
+        res.json({
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                avatar: user.avatar || '',
+                role: user.role || 'user'
+            }
+        });
+    } catch (error) {
+        console.error('获取用户信息失败:', error);
+        res.status(500).json({
+            message: '获取用户信息失败',
             error: error.message
         });
     }

@@ -1,7 +1,7 @@
 <template>
   <div class="app" :class="[{ 'no-background': isCommunityPage, 'dark-theme': themeStore.isDark, 'light-theme': themeStore.isLight }]">
-    <!-- 背景动画：仅黑夜模式显示，社区页面不显示 -->
-    <div class="background-animation" v-if="!isCommunityPage && themeStore.isDark">
+    <!-- 背景动画：仅黑夜模式显示，所有页面都显示 -->
+    <div class="background-animation" v-if="themeStore.isDark">
       <div class="stars"></div>
       <div class="stars-layer-2"></div>
       <div class="stars-layer-3"></div>
@@ -19,31 +19,35 @@
           <!-- 用户头像（登录后显示） -->
           <div v-if="userStore.token && userStore.userInfo" class="user-avatar-nav" @mouseenter="showUserMenu = true" @mouseleave="showUserMenu = false">
             <div class="avatar-circle">
-              {{ userStore.userInfo.username?.charAt(0).toUpperCase() || 'U' }}
+              <img v-if="userStore.userInfo.avatar && !userStore.userInfo.avatar.startsWith('data:')" :src="userStore.userInfo.avatar" :alt="'Avatar for ' + userStore.userInfo.username" @error="handleAvatarError" />
+              <span v-else>{{ userStore.userInfo.username?.charAt(0).toUpperCase() || 'U' }}</span>
             </div>
             <!-- 下拉菜单 -->
             <transition name="fade-menu">
               <div v-if="showUserMenu" class="user-menu-dropdown">
                 <div class="menu-header">
-                  <div class="menu-avatar">{{ userStore.userInfo.username?.charAt(0).toUpperCase() || 'U' }}</div>
+                  <div class="menu-avatar">
+                    <img v-if="userStore.userInfo.avatar && !userStore.userInfo.avatar.startsWith('data:')" :src="userStore.userInfo.avatar" alt="avatar" />
+                    <span v-else>{{ userStore.userInfo.username?.charAt(0).toUpperCase() || 'U' }}</span>
+                  </div>
                   <div class="menu-user-info">
                     <div class="menu-username">{{ userStore.userInfo.username }}</div>
                     <div class="menu-email">{{ userStore.userInfo.email || '' }}</div>
                   </div>
                 </div>
                 <div class="menu-divider"></div>
-                <RouterLink to="/profile" class="menu-item" @click="showUserMenu = false">
+                <button class="menu-item profile-item" @click="openUserProfileModal">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
-                  <span>{{ languageStore.isZh ? '个人中心' : 'Profile' }}</span>
-                </RouterLink>
+                  <span>{{ languageStore.isZh ? '编辑个人信息' : 'Edit Profile' }}</span>
+                </button>
                 <div class="menu-divider"></div>
                 <button class="menu-item logout-item" @click="handleLogout">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <polyline points="16,17 21,12 16,7"></polyline>
                     <line x1="21" y1="12" x2="9" y2="12"></line>
                   </svg>
                   <span>{{ languageStore.isZh ? '退出登录' : 'Logout' }}</span>
@@ -52,8 +56,7 @@
             </transition>
           </div>
           <RouterLink to="/" class="nav-item">{{ languageStore.isZh ? '首页' : 'Home' }}</RouterLink>
-          <RouterLink to="/stories" class="nav-item">{{ languageStore.isZh ? '旅行故事' : 'Stories' }}</RouterLink>
-          <RouterLink to="/tips" class="nav-item">{{ languageStore.isZh ? '攻略分享' : 'Tips' }}</RouterLink>
+          <RouterLink to="/tips" class="nav-item">{{ languageStore.isZh ? '攻略分享' : 'Travel Tips' }}</RouterLink>
           <RouterLink to="/community" class="nav-item">{{ languageStore.isZh ? '社区' : 'Community' }}</RouterLink>
           <RouterLink v-if="!userStore.token" to="/login" class="nav-item">{{ languageStore.isZh ? '登录' : 'Login' }}</RouterLink>
           <button class="nav-item theme-switch" @click="themeStore.toggleTheme()" :title="themeStore.isDark ? (languageStore.isZh ? '切换到白天模式' : 'Switch to Light Mode') : (languageStore.isZh ? '切换到夜间模式' : 'Switch to Dark Mode')">
@@ -81,6 +84,96 @@
 
     <!-- 欢迎弹窗 -->
     <WelcomeModal v-if="showWelcome" @close="handleWelcomeClose" />
+
+    <!-- 用户信息编辑弹窗 -->
+    <div v-if="showUserProfileModal" class="user-profile-modal-overlay" @click.self="showUserProfileModal = false">
+      <div class="user-profile-modal">
+        <div class="modal-header">
+          <h3>{{ languageStore.isZh ? '编辑个人信息' : 'Edit Profile' }}</h3>
+          <button class="modal-close-btn" @click="showUserProfileModal = false">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <form @submit.prevent="updateUserProfile" class="profile-form">
+            <div class="form-group">
+              <label>{{ languageStore.isZh ? '用户名' : 'Username' }}</label>
+              <input
+                v-model="editForm.username"
+                type="text"
+                :placeholder="languageStore.isZh ? '请输入用户名' : 'Enter username'"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label>{{ languageStore.isZh ? '邮箱' : 'Email' }}</label>
+              <input
+                v-model="editForm.email"
+                type="email"
+                :placeholder="languageStore.isZh ? '请输入邮箱' : 'Enter email'"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label>{{ languageStore.isZh ? '个人简介' : 'Bio' }}</label>
+              <textarea
+                v-model="editForm.bio"
+                :placeholder="languageStore.isZh ? '介绍一下自己...' : 'Tell us about yourself...'"
+                rows="3"
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>{{ languageStore.isZh ? '头像' : 'Avatar' }}</label>
+              <div class="avatar-upload-section">
+                <input
+                  ref="avatarInput"
+                  type="file"
+                  accept="image/*"
+                  @change="handleAvatarSelect"
+                  style="display: none"
+                />
+                <div class="current-avatar" @click="triggerAvatarUpload">
+                  <img v-if="editForm.avatar && !editForm.avatar.startsWith('data:')" :src="editForm.avatar" :alt="languageStore.isZh ? '当前头像' : 'Current Avatar'" />
+                  <div v-else class="avatar-placeholder">
+                    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="40" cy="40" r="40" fill="#F3F4F6"/>
+                      <circle cx="40" cy="30" r="15" fill="#C4C4D6"/>
+                      <path d="M20 55h40v15H5v-15z" fill="#C4C4D6"/>
+                    </svg>
+                  </div>
+                  <div class="avatar-overlay">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14.828 14.828a4 4 0 0 1-5.656 0M9 10h1.586a1 1 0 0 1 .707.293l.707.707A1 1 0 0 0 12.414 11H13a2 2 0 0 1 2 2v1.172a2 2 0 0 1-.586 1.414l-1.707 1.707a1 1 0 0 1-1.414 0L9.586 14A2 2 0 0 1 9 12.586V12a2 2 0 0 1 2-2z"></path>
+                      <circle cx="12" cy="12" r="10"></circle>
+                    </svg>
+                    <span>{{ languageStore.isZh ? '更换头像' : 'Change Avatar' }}</span>
+                  </div>
+                </div>
+                <button type="button" class="remove-avatar-btn" v-if="editForm.avatar" @click="removeAvatar">
+                  {{ languageStore.isZh ? '移除头像' : 'Remove Avatar' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="save-btn" :disabled="updating">
+                {{ updating ? (languageStore.isZh ? '保存中...' : 'Saving...') : (languageStore.isZh ? '保存' : 'Save') }}
+              </button>
+              <button type="button" class="cancel-btn" @click="showUserProfileModal = false">
+                {{ languageStore.isZh ? '取消' : 'Cancel' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
 
     <!-- 主要内容区域 -->
     <main class="main-content">
@@ -111,6 +204,8 @@ import WelcomeModal from './components/WelcomeModal.vue'
 import { useLanguageStore } from './stores/useLanguageStore'
 import { useThemeStore } from './stores/useThemeStore'
 import { useUserStore } from './stores/useUserStore'
+import { updateProfile, login } from './api/auth'
+import { uploadFile } from './api/upload'
 
 const route = useRoute()
 const router = useRouter()
@@ -121,16 +216,67 @@ const userStore = useUserStore()
 const isHeaderHidden = ref(false)
 const showBackToTop = ref(false)
 const showUserMenu = ref(false)
+const showUserProfileModal = ref(false)
+const updating = ref(false)
+const avatarInput = ref<HTMLInputElement | null>(null)
+const editForm = ref({
+  username: '',
+  email: '',
+  bio: '',
+  avatar: ''
+})
 
 // 检查当前路由是否是社区页面
 const isCommunityPage = computed(() => route.path === '/community')
 
 
+// 刷新用户信息（用于更新头像等信息）
+const refreshUserInfo = async () => {
+  if (userStore.token && userStore.userInfo?.email) {
+    try {
+      // 使用当前用户的邮箱重新登录以获取最新信息
+      const response = await login(userStore.userInfo.email, 'dummy_password')
+      if (response.token && response.user) {
+        userStore.setToken(response.token)
+        userStore.setUserInfo(response.user)
+        console.log('✅ 用户信息已刷新')
+      }
+    } catch (error) {
+      console.warn('刷新用户信息失败，保持当前信息')
+    }
+  }
+}
+
+// 处理头像加载错误
+const handleAvatarError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  console.warn('头像加载失败:', img.src)
+  img.style.display = 'none'
+  // 显示备用文本
+  const parent = img.parentElement
+  if (parent) {
+    const fallback = document.createElement('span')
+    fallback.textContent = userStore.userInfo?.username?.charAt(0).toUpperCase() || 'U'
+    fallback.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      font-weight: 600;
+      border-radius: 50%;
+    `
+    parent.appendChild(fallback)
+  }
+}
+
 // 监听滚动
 const handleScroll = () => {
   const scrollTop = window.pageYOffset || document.documentElement.scrollTop
   const headerHeight = 100 // 导航栏高度
-  
+
   isHeaderHidden.value = scrollTop > headerHeight
   showBackToTop.value = scrollTop > 300
 }
@@ -142,16 +288,19 @@ const scrollToTop = () => {
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 应用主题
   themeStore.applyTheme()
-  
+
   // 检查是否已经看过欢迎弹窗
   const hasSeenWelcome = localStorage.getItem('hasSeenWelcome')
   if (!hasSeenWelcome) {
     showWelcome.value = true
   }
-  
+
+  // 刷新用户信息（确保头像等信息是最新的）
+  await userStore.refreshUserInfo()
+
   // 添加滚动监听
   window.addEventListener('scroll', handleScroll)
   handleScroll()
@@ -164,6 +313,81 @@ onUnmounted(() => {
 const handleWelcomeClose = () => {
   showWelcome.value = false
   localStorage.setItem('hasSeenWelcome', 'true')
+}
+
+// 打开用户信息编辑弹窗
+const openUserProfileModal = () => {
+  if (userStore.userInfo) {
+    editForm.value = {
+      username: userStore.userInfo.username || '',
+      email: userStore.userInfo.email || '',
+      bio: userStore.userInfo.bio || '',
+      avatar: userStore.userInfo.avatar || ''
+    }
+  }
+  showUserProfileModal.value = true
+}
+
+// 更新用户信息
+const updateUserProfile = async () => {
+  if (!userStore.userInfo) return
+
+  updating.value = true
+  try {
+    // 调用后端API更新用户信息
+    const updateData = {
+      username: editForm.value.username,
+      email: editForm.value.email,
+      bio: editForm.value.bio,
+      avatar: editForm.value.avatar
+    }
+
+    const response = await updateProfile(updateData)
+
+    // 更新本地存储和状态
+    userStore.setUserInfo(response.user)
+    if (response.token) {
+      userStore.setToken(response.token)
+    }
+
+    showUserProfileModal.value = false
+
+    // 显示成功提示
+    alert(languageStore.isZh ? '个人信息更新成功！' : 'Profile updated successfully!')
+  } catch (error) {
+    console.error('更新用户信息失败:', error)
+    alert(languageStore.isZh ? '更新失败，请重试' : 'Update failed, please try again')
+  } finally {
+    updating.value = false
+  }
+}
+
+// 头像上传相关方法
+const triggerAvatarUpload = () => {
+  avatarInput.value?.click()
+}
+
+const handleAvatarSelect = async (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (file && file.type.startsWith('image/')) {
+    try {
+      // 上传文件到服务器
+      const uploadResult = await uploadFile(file)
+      if (uploadResult.success) {
+        editForm.value.avatar = uploadResult.data.url
+      }
+    } catch (error) {
+      console.error('头像上传失败:', error)
+      alert(languageStore.isZh ? '头像上传失败，请重试' : 'Avatar upload failed, please try again')
+    }
+  }
+}
+
+const removeAvatar = () => {
+  editForm.value.avatar = ''
+  if (avatarInput.value) {
+    avatarInput.value.value = ''
+  }
 }
 
 const handleLogout = () => {
@@ -199,13 +423,24 @@ body.dark-theme {
   background-color: #000000;
 }
 
+/* 统一容器样式 */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .app {
-  min-height: 100vh;
+  height: 100vh;
+  width: 100%;
   display: flex;
   flex-direction: column;
   position: relative;
   background-color: #ffffff;
   color: #000000;
+  overflow: hidden;
 }
 
 .app.light-theme {
@@ -411,8 +646,7 @@ body.dark-theme {
   padding: 1rem 0;
   z-index: 200;
   pointer-events: none;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.3), transparent);
-  backdrop-filter: blur(5px);
+  background: transparent;
   min-height: 60px;
   display: flex;
   align-items: center;
@@ -431,6 +665,7 @@ body.dark-theme {
   height: 100%;
   display: flex;
   align-items: center;
+  transition: color 0.3s ease, text-shadow 0.3s ease;
 }
 
 @keyframes titleGlow {
@@ -442,6 +677,12 @@ body.dark-theme {
     text-shadow: 0 0 15px rgba(255, 255, 255, 0.7), 0 0 25px rgba(255, 255, 255, 0.4);
     opacity: 1;
   }
+}
+
+/* 白天模式下的页面标题样式 */
+.light-theme .main-title-absolute {
+  color: #1f2937;
+  text-shadow: 2px 2px 8px rgba(255, 255, 255, 0.8), 0 0 16px rgba(255, 255, 255, 0.6);
 }
 
 .header {
@@ -460,12 +701,17 @@ body.dark-theme {
 
 /* 确保所有内容都在标题下方 */
 .main-content {
-  margin-top: 60px;
+  margin-top: 0;
   padding-top: 0;
+  width: 100%;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .header.hidden {
-  transform: translateY(-100%);
+  transform: translateY(calc(-100% - 60px));
+  opacity: 0;
+  pointer-events: none;
 }
 
 .header-container {
@@ -497,10 +743,21 @@ body.dark-theme {
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
 }
 
+/* 白天模式下的导航栏文字样式 */
+.light-theme .nav-item {
+  color: #1f2937;
+  text-shadow: 2px 2px 8px rgba(255, 255, 255, 0.8), 0 0 16px rgba(255, 255, 255, 0.6);
+}
+
 .nav-item:hover {
   color: #ffffff;
   transform: translateX(-5px);
   text-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+}
+
+/* 白天模式下导航栏悬停状态 */
+.light-theme .nav-item:hover {
+  color: #374151;
 }
 
 .nav-item::after {
@@ -513,6 +770,12 @@ body.dark-theme {
   background-color: #ffffff;
   transition: width 0.3s;
   box-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+}
+
+/* 白天模式下导航栏下划线 */
+.light-theme .nav-item::after {
+  background-color: #1f2937;
+  box-shadow: 0 0 5px rgba(31, 41, 55, 0.8);
 }
 
 .nav-item:hover::after {
@@ -535,6 +798,15 @@ body.dark-theme {
   align-items: center;
   justify-content: center;
   min-width: 40px;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* 白天模式下切换按钮样式 */
+.light-theme .nav-item.theme-switch,
+.light-theme .nav-item.lang-switch {
+  background: rgba(31, 41, 55, 0.1);
+  border: 1px solid rgba(31, 41, 55, 0.3);
+  color: #1f2937;
 }
 
 .nav-item.theme-switch:hover,
@@ -542,6 +814,13 @@ body.dark-theme {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.5);
   transform: none;
+}
+
+/* 白天模式下切换按钮悬停状态 */
+.light-theme .nav-item.theme-switch:hover,
+.light-theme .nav-item.lang-switch:hover {
+  background: rgba(31, 41, 55, 0.2);
+  border-color: rgba(31, 41, 55, 0.5);
 }
 
 .nav-item.theme-switch::after,
@@ -570,6 +849,13 @@ body.dark-theme {
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
   border: 2px solid rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+}
+
+.avatar-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar-circle:hover {
@@ -623,6 +909,13 @@ body.dark-theme {
   font-weight: 700;
   color: white;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.menu-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .menu-user-info {
@@ -708,9 +1001,7 @@ body.dark-theme {
   background-color: var(--bg-color, #000000);
 }
 
-.app.no-background .background-animation {
-  display: none;
-}
+/* 移除社区页面星星背景隐藏的限制，让所有页面都能显示星星背景 */
 
 .main-content {
   flex: 1;
@@ -785,5 +1076,248 @@ body.dark-theme {
     margin-left: auto;
   }
 
+}
+
+/* 用户信息编辑弹窗样式 */
+.user-profile-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.user-profile-modal {
+  background: var(--bg-color, #ffffff);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-color, #000000);
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.6));
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: var(--text-color, #000000);
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--text-color, #000000);
+  font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group textarea {
+  padding: 0.75rem;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.2));
+  border-radius: 8px;
+  background: var(--bg-color, #ffffff);
+  color: var(--text-color, #000000);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.avatar-upload-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.current-avatar {
+  position: relative;
+  cursor: pointer;
+  border-radius: 50%;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.current-avatar:hover {
+  transform: scale(1.05);
+}
+
+.current-avatar img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border: 2px solid var(--border-color, rgba(0, 0, 0, 0.1));
+  transition: all 0.3s ease;
+}
+
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  color: white;
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 0.25rem;
+}
+
+.current-avatar:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.remove-avatar-btn {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border: 1px solid #dc2626;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.remove-avatar-btn:hover {
+  background: rgba(220, 38, 38, 0.2);
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+.save-btn,
+.cancel-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.save-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.save-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cancel-btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-secondary, rgba(0, 0, 0, 0.7));
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.2));
+}
+
+.cancel-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* 响应式设计 */
+@media (max-width: 640px) {
+  .user-profile-modal {
+    margin: 1rem;
+    max-height: calc(100vh - 2rem);
+  }
+
+  .modal-header,
+  .modal-body {
+    padding: 1rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .save-btn,
+  .cancel-btn {
+    width: 100%;
+  }
 }
 </style>

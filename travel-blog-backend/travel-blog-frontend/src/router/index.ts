@@ -3,6 +3,7 @@ import { useUserStore } from '../stores/useUserStore'
 import HomeView from '../views/HomeView.vue'
 import Login from '../views/Login.vue'
 import CommunityView from '../views/CommunityView.vue'
+import TipsView from '../views/TipsView.vue'
 
 // 扩展路由元信息类型
 declare module 'vue-router' {
@@ -32,6 +33,14 @@ const routes = [
     path: '/community',
     name: 'community',
     component: CommunityView,
+    meta: {
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/tips',
+    name: 'tips',
+    component: TipsView,
     meta: {
       requiresAuth: false
     }

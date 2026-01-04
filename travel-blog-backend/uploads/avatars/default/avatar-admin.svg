@@ -1,0 +1,7 @@
+<svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="75" cy="75" r="75" fill="#FF4757"/>
+  <circle cx="75" cy="55" r="25" fill="#FFFFFF"/>
+  <path d="M25 125h100v20H5v-20z" fill="#FFFFFF"/>
+  <!-- 皇冠图标表示管理员 -->
+  <path d="M75 35l-8 15h-16l13 9-5 15 13-9 13 9-5-15 13-9h-16z" fill="#FFD700"/>
+</svg>

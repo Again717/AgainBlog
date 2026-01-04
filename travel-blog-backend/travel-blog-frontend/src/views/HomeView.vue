@@ -5,8 +5,8 @@
       <div class="hero-content">
         <div class="hero-carousel">
           <div class="carousel-container">
-            <div 
-              v-for="(slide, index) in carouselSlides" 
+            <div
+              v-for="(slide, index) in carouselSlides"
               :key="index"
               class="carousel-slide"
               :class="{ active: currentSlide === index }"
@@ -22,8 +22,8 @@
           </div>
           <!-- 轮播指示器 -->
           <div class="carousel-dots">
-            <span 
-              v-for="(slide, index) in carouselSlides" 
+            <span
+              v-for="(slide, index) in carouselSlides"
               :key="index"
               class="dot"
               :class="{ active: currentSlide === index }"
@@ -101,27 +101,7 @@
       </div>
     </section>
 
-    <!-- Section 1 - Travel Tips -->
-    <section class="tips-section">
-      <div class="container">
-        <div class="tips-content">
-          <div class="tips-left">
-            <h2 class="tips-title">{{ t('home.tips.title') }}</h2>
-            <div class="tips-image">
-              <img src="https://images.unsplash.com/photo-1464822759844-d150ad0d275c?w=600&h=400&fit=crop" alt="山谷小镇">
-            </div>
-          </div>
-          <div class="tips-right">
-            <div class="tips-text">
-              <p>{{ t('home.tips.text1') }}</p>
-              <p>{{ t('home.tips.text2') }}</p>
-              <p>{{ t('home.tips.text3') }}</p>
-            </div>
-            <button class="read-story-btn">{{ t('home.tips.readMore') }}</button>
-          </div>
-        </div>
-      </div>
-    </section>
+
 
     <!-- Section 2 - Again的旅行故事 -->
     <section class="destinations-section">
@@ -145,12 +125,12 @@
               prevEl: '.swiper-button-prev-custom',
             }"
             :breakpoints="{
-              320: { 
+              320: {
                 slidesPerView: 1,
                 spaceBetween: 20,
                 centeredSlides: true
               },
-              768: { 
+              768: {
                 slidesPerView: 3,
                 spaceBetween: 30,
                 centeredSlides: true
@@ -168,7 +148,11 @@
               class="destination-slide"
             >
               <div class="destination-card">
-                <div class="destination-image" @click.stop="openCommentModal(index)">
+                <div
+                  class="destination-image"
+                  :class="{ 'clickable': activeSwiperSlideIndex === index }"
+                  @click.stop="activeSwiperSlideIndex === index ? openCommentModal(index) : null"
+                >
                   <img :src="destination.image" :alt="destination.name">
                   <div class="image-overlay">
                     <div class="overlay-content">
@@ -198,7 +182,8 @@
                         type="button"
                         class="destination-action-btn like-btn"
                         :class="{ liked: destination.liked }"
-                        @click.stop="likeDestination(index)"
+                        :disabled="activeSwiperSlideIndex !== index"
+                        @click.stop="activeSwiperSlideIndex === index ? likeDestination(index) : null"
                       >
                         <svg class="heart-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
@@ -208,7 +193,8 @@
                       <button
                         type="button"
                         class="destination-action-btn comment-btn"
-                        @click.stop="openCommentModal(index)"
+                        :disabled="activeSwiperSlideIndex !== index"
+                        @click.stop="activeSwiperSlideIndex === index ? openCommentModal(index) : null"
                       >
                         <svg class="comment-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -222,7 +208,7 @@
             </swiper-slide>
           </swiper>
           <!-- 导航箭头 -->
-          <button 
+          <button
             class="carousel-nav-btn prev-btn swiper-button-prev-custom"
             :disabled="isTransitioning"
           >
@@ -230,7 +216,7 @@
               <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
           </button>
-          <button 
+          <button
             class="carousel-nav-btn next-btn swiper-button-next-custom"
             :disabled="isTransitioning"
           >
@@ -287,6 +273,192 @@
         </div>
       </div>
     </section>
+
+    <!-- 卡片评论弹窗 - 重新设计 -->
+    <div
+      v-if="showCommentModal && activeDestination"
+      class="comment-modal-overlay-new"
+      @click.self="closeCommentModal"
+    >
+      <div class="comment-modal-new">
+        <!-- 关闭按钮 -->
+        <button class="modal-close-btn" @click="closeCommentModal">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+
+        <div class="modal-content-wrapper">
+          <!-- 左侧图片预览区 -->
+          <div class="modal-image-section">
+            <div class="image-preview-container">
+              <div
+                class="preview-image"
+                :style="{ background: previewImages[currentImageIndex].gradient }"
+              >
+                <div class="image-placeholder">
+                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5">
+                    <path d="M14.828 14.828a4 4 0 0 1-5.656 0M9 10h6M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="image-nav">
+                <button @click="prevImage" class="nav-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
+                </button>
+                <div class="image-indicators">
+                  <span
+                    v-for="(img, index) in previewImages"
+                    :key="index"
+                    class="indicator"
+                    :class="{ active: index === currentImageIndex }"
+                    @click="currentImageIndex = index"
+                  ></span>
+                </div>
+                <button @click="nextImage" class="nav-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右侧评论区 -->
+          <div class="modal-comments-section">
+            <div class="modal-header">
+              <div class="modal-destination-info">
+                <h3 class="modal-destination-title">{{ activeDestination.name }}</h3>
+                <p class="modal-destination-location">{{ activeDestination.location }}</p>
+                <div class="modal-destination-stats">
+                  <span class="stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                    </svg>
+                    {{ activeDestination.likes }}
+                  </span>
+                  <span class="stat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    {{ activeDestination.comments }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="comments-container">
+              <!-- 评论列表 -->
+              <div class="comments-list">
+                <div
+                  v-for="(comment, index) in activeDestination.commentList"
+                  :key="index"
+                  class="comment-item"
+                >
+                  <div class="comment-main">
+                    <div class="comment-avatar">
+                      <img v-if="comment.userAvatar" :src="comment.userAvatar" :alt="comment.user" />
+                      <span v-else>{{ comment.user.charAt(0).toUpperCase() }}</span>
+                    </div>
+                    <div class="comment-content">
+                      <div class="comment-header">
+                        <span class="comment-user">{{ comment.user }}</span>
+                        <span class="comment-time">{{ comment.time }}</span>
+                      </div>
+                      <p class="comment-text">{{ comment.content }}</p>
+                      <div class="comment-actions">
+                        <button
+                          class="action-btn like-comment-btn"
+                          :class="{ liked: comment.liked }"
+                          @click="likeComment(activeCommentIndex!, index)"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                          </svg>
+                          {{ comment.likes }}
+                        </button>
+                        <button
+                          class="action-btn reply-btn"
+                          @click="showReplyInput(activeCommentIndex!, index)"
+                        >
+                          回复
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 回复输入框 -->
+                  <div v-if="showReplyInputs[`${activeCommentIndex}-${index}`]" class="reply-input-wrapper">
+                    <textarea
+                      v-model="replyTexts[`${activeCommentIndex}-${index}`]"
+                      class="reply-textarea"
+                      placeholder="写下你的回复..."
+                      rows="2"
+                    ></textarea>
+                    <div class="reply-actions">
+                      <button
+                        class="cancel-reply-btn"
+                        @click="cancelReply(activeCommentIndex!, index)"
+                      >
+                        取消
+                      </button>
+                      <button
+                        class="submit-reply-btn"
+                        :disabled="!replyTexts[`${activeCommentIndex}-${index}`]?.trim()"
+                        @click="submitReply(activeCommentIndex!, index)"
+                      >
+                        回复
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 回复列表 -->
+                  <div v-if="comment.replies && comment.replies.length > 0" class="replies-list">
+                    <div
+                      v-for="(reply, replyIndex) in comment.replies"
+                      :key="replyIndex"
+                      class="reply-item"
+                    >
+                      <div class="reply-avatar">
+                        <img v-if="reply.userAvatar" :src="reply.userAvatar" :alt="reply.user" />
+                        <span v-else>{{ reply.user.charAt(0).toUpperCase() }}</span>
+                      </div>
+                      <div class="reply-content">
+                        <div class="reply-header">
+                          <span class="reply-user">{{ reply.user }}</span>
+                          <span class="reply-time">{{ reply.time }}</span>
+                        </div>
+                        <p class="reply-text">{{ reply.content }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 评论输入框 -->
+              <div class="comment-input-section">
+                <textarea
+                  v-model="commentText"
+                  class="comment-textarea-modal"
+                  rows="3"
+                  placeholder="写下你的想法..."
+                ></textarea>
+                <button
+                  class="submit-comment-btn"
+                  :disabled="!commentText.trim()"
+                  @click="submitComment"
+                >
+                  发布
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Section 5 - 留言板 -->
     <section class="message-board-section">
@@ -438,6 +610,68 @@
                       <div class="comment-user-name">{{ comment.user }}</div>
                       <div class="comment-text-content">{{ comment.content }}</div>
                       <div class="comment-time">{{ comment.time }}</div>
+                      <div class="comment-actions">
+                        <button 
+                          class="comment-action-btn"
+                          :class="{ liked: comment.liked }"
+                          @click="likeComment(activeCommentIndex!, idx)"
+                          :title="languageStore.isZh ? '点赞' : 'Like'"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                          </svg>
+                          <span>{{ comment.likes || 0 }}</span>
+                        </button>
+                        <button 
+                          class="comment-action-btn reply-btn"
+                          @click="showReplyInput(activeCommentIndex!, idx)"
+                          :title="languageStore.isZh ? '回复' : 'Reply'"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                          </svg>
+                          <span>{{ languageStore.isZh ? '回复' : 'Reply' }}</span>
+                        </button>
+                      </div>
+                      <!-- 回复输入框 -->
+                      <div v-if="showReplyInputs[`${activeCommentIndex}-${idx}`]" class="reply-input-wrapper">
+                        <textarea
+                          v-model="replyTexts[`${activeCommentIndex}-${idx}`]"
+                          class="reply-textarea"
+                          rows="2"
+                          :placeholder="languageStore.isZh ? '写下你的回复...' : 'Write your reply...'"
+                        ></textarea>
+                        <div class="reply-actions">
+                          <button 
+                            class="reply-submit-btn"
+                            @click="submitReply(activeCommentIndex!, idx)"
+                            :disabled="!replyTexts[`${activeCommentIndex}-${idx}`]?.trim()"
+                          >
+                            {{ languageStore.isZh ? '发送' : 'Send' }}
+                          </button>
+                          <button 
+                            class="reply-cancel-btn"
+                            @click="cancelReply(activeCommentIndex!, idx)"
+                          >
+                            {{ languageStore.isZh ? '取消' : 'Cancel' }}
+                          </button>
+                        </div>
+                      </div>
+                      <!-- 回复列表 -->
+                      <div v-if="comment.replies && comment.replies.length > 0" class="replies-list">
+                        <div 
+                          v-for="(reply, replyIdx) in comment.replies" 
+                          :key="replyIdx"
+                          class="reply-item"
+                        >
+                          <div class="reply-user-avatar">{{ reply.user.charAt(0) }}</div>
+                          <div class="reply-content">
+                            <div class="reply-user-name">{{ reply.user }}</div>
+                            <div class="reply-text">{{ reply.content }}</div>
+                            <div class="reply-time">{{ reply.time }}</div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -488,16 +722,27 @@ import 'swiper/css'
 import 'swiper/css/navigation'
 import type { Swiper as SwiperType } from 'swiper'
 import { useUserStore } from '../stores/useUserStore'
+import { useLanguageStore } from '../stores/useLanguageStore'
 import { RouterLink } from 'vue-router'
 import { getCarouselImages } from '../api/carousel'
+import {
+  getTravelStories,
+  likeTravelStory,
+  commentTravelStory,
+  likeTravelStoryComment,
+  replyTravelStoryComment,
+  type TravelStory
+} from '../api/travelStories'
 
 const { t, language } = useI18n()
 const userStore = useUserStore()
+const languageStore = useLanguageStore()
 
 // Swiper 模块
 const swiperModules = [Navigation]
 const swiperInstance = ref<SwiperType | null>(null)
 const isTransitioning = ref(false)
+const activeSwiperSlideIndex = ref(0)
 
 // 轮播图数据
 const currentSlide = ref(0)
@@ -547,6 +792,101 @@ const loadCarouselImages = async () => {
   }
 }
 
+// 从API加载旅行故事数据
+const loadTravelStories = async () => {
+  try {
+    isLoadingDestinations.value = true
+    const response = await getTravelStories()
+    if (response.success && response.data) {
+      destinations.value = response.data
+    }
+  } catch (error) {
+    console.error('加载旅行故事失败:', error)
+    // 如果API失败，使用默认数据（保持向后兼容）
+    destinations.value = [
+      {
+        _id: 'default-1',
+        image: '/images/Home/长白山.jpg',
+        name: '我在長白山很想你',
+        location: '长白山，中国',
+        description: '冷冽的山风裹着热乎乎的思念，在雪线边写下这句想你。长白山天池如镜，雪峰耸立，是东北最壮美的自然奇观。',
+        count: '12 place to visited',
+        themeColor: '#e0f2fe',
+        likes: 32,
+        comments: 8,
+        liked: false,
+        commentList: [
+          { _id: 'c1', user: '旅行者A', content: '太美了！下次一定要去！', time: '2小时前', likes: 5, liked: false, replies: [] },
+          { _id: 'c2', user: '游游', content: '雪景真的很震撼', time: '1天前', likes: 3, liked: false, replies: [] }
+        ]
+      },
+      {
+        _id: 'default-2',
+        image: '/images/Home/上海外滩.jpg',
+        name: '繁华都市的日常',
+        location: '上海，中国',
+        description: '人潮和霓虹灯下，每一次驻足都是和这座城的短暂对话。外滩万国建筑博览群，黄浦江畔的繁华与历史交融。',
+        count: '28 place to visited',
+        themeColor: '#fee2e2',
+        likes: 45,
+        comments: 12,
+        liked: false,
+        commentList: [
+          { _id: 'c3', user: '城市探索者', content: '外滩的夜景真的很美', time: '3小时前', likes: 8, liked: false, replies: [] },
+          { _id: 'c4', user: '摄影爱好者', content: '拍得真好！', time: '5小时前', likes: 4, liked: false, replies: [] }
+        ]
+      },
+      {
+        _id: 'default-3',
+        image: '/images/Home/厦门鼓浪屿.jpg',
+        name: '海天一色的城市',
+        location: '鼓浪屿，中国',
+        description: '老房子、红瓦和海风，把时间拉得很慢很慢。海上花园，琴岛风情，中西合璧的建筑艺术与浪漫的海岛风光。',
+        count: '35 place to visited',
+        themeColor: '#ffedd5',
+        likes: 51,
+        comments: 19,
+        liked: false,
+        commentList: [
+          { _id: 'c5', user: '海岛控', content: '鼓浪屿真的很适合慢生活', time: '1天前', likes: 12, liked: false, replies: [] },
+          { _id: 'c6', user: '文艺青年', content: '喜欢这种悠闲的感觉', time: '2天前', likes: 6, liked: false, replies: [] }
+        ]
+      },
+      {
+        _id: 'default-4',
+        image: '/images/Home/哈尔滨.jpg',
+        name: '冰城雪韵',
+        location: '哈尔滨，中国',
+        description: '冰城雪韵，欧式建筑与冰雪文化的完美结合，冬季的童话世界。抬头是灯火辉煌的高楼，低头是各自奔赴的生活。',
+        count: '18 place to visited',
+        themeColor: '#e5e7eb',
+        likes: 63,
+        comments: 21,
+        liked: false,
+        commentList: [
+          { _id: 'c7', user: '冰雪爱好者', content: '哈尔滨的冬天太美了！', time: '4小时前', likes: 15, liked: false, replies: [] },
+          { _id: 'c8', user: '北方人', content: '家乡的风景总是最美的', time: '6小时前', likes: 7, liked: false, replies: [] }
+        ]
+      },
+      {
+        _id: 'default-5',
+        image: '/images/Home/贵州阿西里西大草原.jpg',
+        name: '高原风光',
+        location: '贵州阿西里西大草原，中国',
+        description: '高原风光，云海翻腾，草原辽阔，是贵州的天然氧吧。按下快门的那一秒，风、光和心情刚刚好。',
+        count: '22 place to visited',
+        themeColor: '#fef3c7',
+        likes: 27,
+        comments: 6,
+        liked: false,
+        commentList: []
+      }
+    ]
+  } finally {
+    isLoadingDestinations.value = false
+  }
+}
+
 let autoPlayTimer: number | null = null
 
 const nextSlide = () => {
@@ -590,188 +930,10 @@ const stopAutoPlay = () => {
   }
 }
 
-// 目的地轮播数据 - 使用Home文件夹下的图片，确保文字和图片对应
-const destinations = ref([
-  {
-    image: '/images/Home/长白山.jpg',
-    name: '我在長白山很想你',
-    location: '长白山，中国',
-    description: '冷冽的山风裹着热乎乎的思念，在雪线边写下这句想你。长白山天池如镜，雪峰耸立，是东北最壮美的自然奇观。',
-    count: '12 place to visited',
-    themeColor: '#e0f2fe',
-    likes: 32,
-    comments: 8,
-    liked: false,
-    commentList: [
-      { user: '旅行者A', content: '太美了！下次一定要去！', time: '2小时前' },
-      { user: '游游', content: '雪景真的很震撼', time: '1天前' }
-    ]
-  },
-  {
-    image: '/images/Home/上海外滩.jpg',
-    name: '繁华都市的日常',
-    location: '上海，中国',
-    description: '人潮和霓虹灯下，每一次驻足都是和这座城的短暂对话。外滩万国建筑博览群，黄浦江畔的繁华与历史交融。',
-    count: '28 place to visited',
-    themeColor: '#fee2e2',
-    likes: 45,
-    comments: 12,
-    liked: false,
-    commentList: [
-      { user: '城市探索者', content: '外滩的夜景真的很美', time: '3小时前' },
-      { user: '摄影爱好者', content: '拍得真好！', time: '5小时前' }
-    ]
-  },
-  {
-    image: '/images/Home/厦门鼓浪屿.jpg',
-    name: '海天一色的城市',
-    location: '鼓浪屿，中国',
-    description: '老房子、红瓦和海风，把时间拉得很慢很慢。海上花园，琴岛风情，中西合璧的建筑艺术与浪漫的海岛风光。',
-    count: '35 place to visited',
-    themeColor: '#ffedd5',
-    likes: 51,
-    comments: 19,
-    liked: false,
-    commentList: [
-      { user: '海岛控', content: '鼓浪屿真的很适合慢生活', time: '1天前' },
-      { user: '文艺青年', content: '喜欢这种悠闲的感觉', time: '2天前' }
-    ]
-  },
-  {
-    image: '/images/Home/哈尔滨.jpg',
-    name: '冰城雪韵',
-    location: '哈尔滨，中国',
-    description: '冰城雪韵，欧式建筑与冰雪文化的完美结合，冬季的童话世界。抬头是灯火辉煌的高楼，低头是各自奔赴的生活。',
-    count: '18 place to visited',
-    themeColor: '#e5e7eb',
-    likes: 63,
-    comments: 21,
-    liked: false,
-    commentList: [
-      { user: '冰雪爱好者', content: '哈尔滨的冬天太美了！', time: '4小时前' },
-      { user: '北方人', content: '家乡的风景总是最美的', time: '6小时前' }
-    ]
-  },
-  {
-    image: '/images/Home/贵州阿西里西大草原.jpg',
-    name: '高原风光',
-    location: '贵州阿西里西大草原，中国',
-    description: '高原风光，云海翻腾，草原辽阔，是贵州的天然氧吧。按下快门的那一秒，风、光和心情刚刚好。',
-    count: '22 place to visited',
-    themeColor: '#fef3c7',
-    likes: 27,
-    comments: 6,
-    liked: false,
-    commentList: []
-  }
-])
-
-// 卡片点赞与评论（简单本地计数）
-const likeDestination = (index: number) => {
-  const item = destinations.value[index]
-  if (!item) return
-  if (item.liked) {
-    item.likes = Math.max(0, (item.likes || 0) - 1)
-    item.liked = false
-  } else {
-    item.likes = (item.likes || 0) + 1
-    item.liked = true
-  }
-}
-
-const showCommentModal = ref(false)
-const activeCommentIndex = ref<number | null>(null)
-const commentText = ref('')
-const currentImageIndex = ref(0)
-
-const activeDestination = computed(() => {
-  if (activeCommentIndex.value === null) return null
-  return destinations.value[activeCommentIndex.value] || null
-})
-
-// 预览图片列表（使用渐变背景代替）
-const previewImages = computed(() => {
-  return [
-    { gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-    { gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
-    { gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
-    { gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
-    { gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' }
-  ]
-})
-
-const openCommentModal = (index: number) => {
-  activeCommentIndex.value = index
-  commentText.value = ''
-  currentImageIndex.value = 0
-  showCommentModal.value = true
-}
-
-const closeCommentModal = () => {
-  showCommentModal.value = false
-  commentText.value = ''
-  currentImageIndex.value = 0
-}
-
-const submitComment = () => {
-  if (activeCommentIndex.value === null || !commentText.value.trim()) return
-  const item = destinations.value[activeCommentIndex.value]
-  if (!item) return
-  item.comments = (item.comments || 0) + 1
-  // 添加评论到列表
-  if (!item.commentList) {
-    item.commentList = []
-  }
-  item.commentList.unshift({
-    user: userStore.userInfo?.username || '游客',
-    content: commentText.value.trim(),
-    time: '刚刚'
-  })
-  // 这里可以后续接入真实评论提交逻辑
-  commentText.value = ''
-}
-
-const nextImage = () => {
-  if (activeDestination.value) {
-    currentImageIndex.value = (currentImageIndex.value + 1) % previewImages.value.length
-  }
-}
-
-const prevImage = () => {
-  if (activeDestination.value) {
-    currentImageIndex.value = (currentImageIndex.value - 1 + previewImages.value.length) % previewImages.value.length
-  }
-}
-
-// Swiper 事件处理
-const onSlideChange = (swiper: SwiperType) => {
-  // Creative Effect 会自动处理样式
-}
-
-const onTransitionStart = (swiper: SwiperType) => {
-  // 动画开始时禁用按钮
-  isTransitioning.value = true
-}
-
-const onTransitionEnd = (swiper: SwiperType) => {
-  // 动画结束时立即启用按钮
-  isTransitioning.value = false
-  
-  // 确保 Swiper 导航按钮也恢复可用
-  nextTick(() => {
-    if (swiper.navigation) {
-      // 强制更新导航按钮状态
-      swiper.navigation.update()
-    }
-  })
-}
-
-const onSwiper = (swiper: SwiperType) => {
-  swiperInstance.value = swiper
-}
 
 onMounted(async () => {
   await loadCarouselImages()
+  await loadTravelStories()
   startAutoPlay()
 })
 
@@ -826,6 +988,226 @@ const galleryItems = ref([
     location: "自然秘境"
   }
 ])
+
+// 目的地轮播数据 - 从API加载
+const destinations = ref<TravelStory[]>([])
+const isLoadingDestinations = ref(true)
+
+// 卡片点赞（使用API）
+const likeDestination = async (index: number) => {
+  const item = destinations.value[index]
+  if (!item || !isLoggedIn.value) return
+
+  try {
+    const response = await likeTravelStory(item._id)
+    if (response.success && response.data) {
+      // 更新本地数据
+      const updatedItem = response.data
+      destinations.value[index] = updatedItem
+    }
+  } catch (error) {
+    console.error('点赞失败:', error)
+    // 如果API失败，回退到本地状态变更（保持向后兼容）
+    if (item.liked) {
+      item.likes = Math.max(0, (item.likes || 0) - 1)
+      item.liked = false
+    } else {
+      item.likes = (item.likes || 0) + 1
+      item.liked = true
+    }
+  }
+}
+
+const showCommentModal = ref(false)
+const activeCommentIndex = ref<number | null>(null)
+const commentText = ref('')
+const currentImageIndex = ref(0)
+const showReplyInputs = ref<Record<string, boolean>>({})
+const replyTexts = ref<Record<string, string>>({})
+
+const activeDestination = computed(() => {
+  if (activeCommentIndex.value === null) return null
+  return destinations.value[activeCommentIndex.value] || null
+})
+
+// 预览图片列表（使用渐变背景代替）
+const previewImages = computed(() => {
+  return [
+    { gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+    { gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
+    { gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
+    { gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
+    { gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' }
+  ]
+})
+
+const openCommentModal = (index: number) => {
+  activeCommentIndex.value = index
+  commentText.value = ''
+  currentImageIndex.value = 0
+  showCommentModal.value = true
+}
+
+const closeCommentModal = () => {
+  showCommentModal.value = false
+  commentText.value = ''
+  currentImageIndex.value = 0
+}
+
+const submitComment = async () => {
+  if (activeCommentIndex.value === null || !commentText.value.trim() || !isLoggedIn.value) return
+
+  const item = destinations.value[activeCommentIndex.value]
+  if (!item) return
+
+  try {
+    const response = await commentTravelStory(item._id, commentText.value.trim())
+    if (response.success && response.data) {
+      // 更新本地数据
+      const updatedItem = response.data
+      destinations.value[activeCommentIndex.value] = updatedItem
+      commentText.value = ''
+    }
+  } catch (error) {
+    console.error('评论失败:', error)
+    // 如果API失败，保持本地状态（向后兼容）
+    item.comments = (item.comments || 0) + 1
+    if (!item.commentList) {
+      item.commentList = []
+    }
+    item.commentList.unshift({
+      _id: `local-${Date.now()}`,
+      user: userStore.userInfo?.username || '游客',
+      userAvatar: userStore.userInfo?.avatar,
+      content: commentText.value.trim(),
+      time: '刚刚',
+      likes: 0,
+      liked: false,
+      replies: []
+    })
+    commentText.value = ''
+  }
+}
+
+const likeComment = async (destinationIndex: number, commentIndex: number) => {
+  const item = destinations.value[destinationIndex]
+  if (!item || !item.commentList || !isLoggedIn.value) return
+
+  const comment = item.commentList[commentIndex]
+  if (!comment) return
+
+  try {
+    const response = await likeTravelStoryComment(item._id, comment._id)
+    if (response.success && response.data) {
+      // 更新本地数据
+      const updatedItem = response.data
+      destinations.value[destinationIndex] = updatedItem
+    }
+  } catch (error) {
+    console.error('点赞评论失败:', error)
+    // 如果API失败，回退到本地状态变更
+    if (comment.liked) {
+      comment.likes = Math.max(0, (comment.likes || 0) - 1)
+      comment.liked = false
+    } else {
+      comment.likes = (comment.likes || 0) + 1
+      comment.liked = true
+    }
+  }
+}
+
+const showReplyInput = (destinationIndex: number, commentIndex: number) => {
+  const key = `${destinationIndex}-${commentIndex}`
+  showReplyInputs.value[key] = true
+  if (!replyTexts.value[key]) {
+    replyTexts.value[key] = ''
+  }
+}
+
+const cancelReply = (destinationIndex: number, commentIndex: number) => {
+  const key = `${destinationIndex}-${commentIndex}`
+  showReplyInputs.value[key] = false
+  replyTexts.value[key] = ''
+}
+
+const submitReply = async (destinationIndex: number, commentIndex: number) => {
+  const key = `${destinationIndex}-${commentIndex}`
+  const replyText = replyTexts.value[key]?.trim()
+  if (!replyText || !isLoggedIn.value) return
+
+  const item = destinations.value[destinationIndex]
+  if (!item || !item.commentList) return
+
+  const comment = item.commentList[commentIndex]
+  if (!comment) return
+
+  try {
+    const response = await replyTravelStoryComment(item._id, comment._id, replyText)
+    if (response.success && response.data) {
+      // 更新本地数据
+      const updatedItem = response.data
+      destinations.value[destinationIndex] = updatedItem
+      replyTexts.value[key] = ''
+      showReplyInputs.value[key] = false
+    }
+  } catch (error) {
+    console.error('回复评论失败:', error)
+    // 如果API失败，保持本地状态
+    if (!comment.replies) {
+      comment.replies = []
+    }
+    comment.replies.push({
+      _id: `local-reply-${Date.now()}`,
+      user: userStore.userInfo?.username || '游客',
+      userAvatar: userStore.userInfo?.avatar,
+      content: replyText,
+      time: '刚刚'
+    })
+    replyTexts.value[key] = ''
+    showReplyInputs.value[key] = false
+  }
+}
+
+const nextImage = () => {
+  if (activeDestination.value) {
+    currentImageIndex.value = (currentImageIndex.value + 1) % previewImages.value.length
+  }
+}
+
+const prevImage = () => {
+  if (activeDestination.value) {
+    currentImageIndex.value = (currentImageIndex.value - 1 + previewImages.value.length) % previewImages.value.length
+  }
+}
+
+// Swiper 事件处理
+const onSlideChange = (swiper: SwiperType) => {
+  // Creative Effect 会自动处理样式
+  activeSwiperSlideIndex.value = swiper.realIndex
+}
+
+const onTransitionStart = (swiper: SwiperType) => {
+  // 动画开始时禁用按钮
+  isTransitioning.value = true
+}
+
+const onTransitionEnd = (swiper: SwiperType) => {
+  // 动画结束时立即启用按钮
+  isTransitioning.value = false
+
+  // 确保 Swiper 导航按钮也恢复可用
+  nextTick(() => {
+    if (swiper.navigation) {
+      // 强制更新导航按钮状态
+      swiper.navigation.update()
+    }
+  })
+}
+
+const onSwiper = (swiper: SwiperType) => {
+  swiperInstance.value = swiper
+  activeSwiperSlideIndex.value = swiper.realIndex
+}
 
 // 留言板数据
 const messages = ref([
@@ -894,17 +1276,19 @@ const submitMessage = () => {
 <style scoped>
 .home {
   width: 100%;
+  height: 100vh;
   position: relative;
   background-color: transparent;
   color: #ffffff;
-  min-height: 100vh;
   z-index: 2;
 }
 
 .container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .destinations-section .container {
@@ -914,24 +1298,26 @@ const submitMessage = () => {
 /* Hero Section */
 .hero-section {
   width: 100%;
+  height: 90vh;
   padding: 0;
   position: relative;
   z-index: 2;
-  margin-top: 6rem;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .hero-content {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0;
 }
 
 .hero-carousel {
   position: relative;
   width: 100%;
-  height: 70vh;
+  height: 90vh;
   min-height: 500px;
-  max-height: 700px;
+  max-height: 800px;
   overflow: hidden;
 }
 
@@ -980,6 +1366,11 @@ const submitMessage = () => {
   z-index: 1;
 }
 
+/* 白天模式下的轮播图覆盖层 - 更亮的背景以确保文字可见 */
+.light-theme .slide-overlay {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.2));
+}
+
 .hero-text {
   text-align: center;
   padding: 2rem;
@@ -1007,6 +1398,50 @@ const submitMessage = () => {
   max-width: 900px;
   margin: 0;
   text-shadow: 2px 2px 12px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+/* 白天模式下轮播图文字颜色调整 - 使用深色文字在白色背景下 */
+.light-theme .hero-motto {
+  color: #1f2937;
+  text-shadow: 2px 2px 8px rgba(255, 255, 255, 0.8), 0 0 16px rgba(255, 255, 255, 0.6);
+}
+
+.light-theme .hero-category {
+  color: #374151;
+  text-shadow: 1px 1px 4px rgba(255, 255, 255, 0.9), 0 0 8px rgba(255, 255, 255, 0.7);
+}
+
+.light-theme .read-post-btn {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-color: #374151;
+  color: #374151;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* 白天模式下其他文字元素的颜色调整 */
+.light-theme .section-title-white {
+  color: #1f2937 !important;
+}
+
+.light-theme .blogger-intro-section {
+  background-color: rgba(255, 255, 255, 0.95);
+  color: #1f2937;
+}
+
+.light-theme .destinations-section {
+  color: #1f2937;
+}
+
+.light-theme .gallery-section {
+  color: #1f2937;
+}
+
+.light-theme .message-board-section {
+  color: #1f2937;
+}
+
+.light-theme .tips-section {
+  color: #1f2937;
 }
 
 .read-post-btn {
@@ -1108,7 +1543,7 @@ const submitMessage = () => {
 
 /* 博主介绍模块 */
 .blogger-intro-section {
-  padding: 4rem 2rem;
+  padding: 4rem 0;
   background-color: transparent;
   position: relative;
   z-index: 1;
@@ -1127,6 +1562,13 @@ const submitMessage = () => {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
   transition: all 0.3s ease;
+}
+
+/* 白天模式下的博主介绍卡片 - 更明显的背景 */
+.light-theme .blogger-intro-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .blogger-intro-card:hover {
@@ -1163,6 +1605,11 @@ const submitMessage = () => {
   font-weight: 700;
   margin-bottom: 1rem;
   color: var(--text-color, #ffffff);
+}
+
+/* 白天模式下的博客自我介绍文字 */
+.light-theme .blogger-name {
+  color: #1f2937;
 }
 
 .blogger-social {
@@ -1211,6 +1658,11 @@ const submitMessage = () => {
   white-space: nowrap;
 }
 
+/* 白天模式下的详细信息标签 */
+.light-theme .detail-label {
+  color: #1f2937;
+}
+
 .detail-tags {
   display: flex;
   flex-wrap: wrap;
@@ -1226,6 +1678,17 @@ const submitMessage = () => {
   color: var(--text-color, #ffffff);
   border: 1px solid rgba(255, 255, 255, 0.2);
   transition: all 0.3s ease;
+}
+
+/* 白天模式下的标签 */
+.light-theme .tag {
+  background: rgba(0, 0, 0, 0.05);
+  color: #374151;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.light-theme .tag:hover {
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .tag:hover {
@@ -1252,7 +1715,7 @@ const submitMessage = () => {
 
 /* Tips Section */
 .tips-section {
-  padding: 4rem 2rem;
+  padding: 4rem 0;
   background-color: transparent;
   position: relative;
   z-index: 1;
@@ -1314,9 +1777,21 @@ const submitMessage = () => {
   border-color: rgba(255, 255, 255, 0.5);
 }
 
+/* 白天模式下的阅读故事按钮 */
+.light-theme .read-story-btn {
+  background-color: rgba(31, 41, 55, 0.9);
+  color: white;
+  border-color: #374151;
+}
+
+.light-theme .read-story-btn:hover {
+  background-color: #374151;
+  border-color: #4b5563;
+}
+
 /* Destinations Section */
 .destinations-section {
-  padding: 4rem 2rem;
+  padding: 4rem 0;
   background-color: transparent;
   color: white;
   position: relative;
@@ -1439,6 +1914,15 @@ const submitMessage = () => {
   max-height: 65%;
   height: 0;
   padding-bottom: 65%;
+}
+
+.destination-image.clickable {
+  cursor: pointer;
+}
+
+.destination-image:not(.clickable) {
+  cursor: default;
+  pointer-events: none;
 }
 
 .destination-image img {
@@ -1594,9 +2078,15 @@ const submitMessage = () => {
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
-.destination-action-btn:hover {
+.destination-action-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.destination-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .destination-action-btn .text {
@@ -1633,11 +2123,13 @@ const submitMessage = () => {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
   color: #e5e7eb;
+  transition: all 0.3s ease;
 }
 
 .dark-theme .destination-action-btn.like-btn.liked {
   background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
   color: white;
+  box-shadow: 0 4px 16px rgba(255, 107, 157, 0.4);
 }
 
 .dark-theme .destination-action-btn.comment-btn {
@@ -1645,12 +2137,19 @@ const submitMessage = () => {
   color: #a5b4fc;
 }
 
-.dark-theme .destination-action-btn:hover {
+.dark-theme .destination-action-btn.comment-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.3);
+  color: #c7d2fe;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+.dark-theme .destination-action-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.15);
+  color: #f3f4f6;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-/* 日间模式下的文字颜色 */
+/* 日间模式下的文字颜色 - 根据背景色自适应 */
 .light-theme .destination-card {
   background-color: white;
   border-color: rgba(0, 0, 0, 0.15);
@@ -1660,20 +2159,69 @@ const submitMessage = () => {
   color: #1e3a5f;
 }
 
+/* 浅色背景上的文字使用深色，但更柔和 */
+.light-theme .destination-info[style*="background-color: #e0f2fe"] {
+  color: #0c4a6e;
+}
+
+.light-theme .destination-info[style*="background-color: #fee2e2"] {
+  color: #7f1d1d;
+}
+
+.light-theme .destination-info[style*="background-color: #ffedd5"] {
+  color: #7c2d12;
+}
+
+.light-theme .destination-info[style*="background-color: #e5e7eb"] {
+  color: #1f2937;
+}
+
+.light-theme .destination-info[style*="background-color: #fef3c7"] {
+  color: #78350f;
+}
+
 .light-theme .destination-name {
-  color: #000;
+  color: #111827;
+  font-weight: 600;
 }
 
 .light-theme .destination-location {
-  color: #666;
+  color: #4b5563;
 }
 
 .light-theme .destination-description {
-  color: #555;
+  color: #374151;
+  line-height: 1.6;
 }
 
 .light-theme .destination-count {
-  color: #888;
+  color: #6b7280;
+}
+
+/* 带背景的按钮文字颜色优化 */
+.light-theme .destination-action-btn {
+  color: #374151;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.light-theme .destination-action-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.1);
+  color: #111827;
+}
+
+.light-theme .destination-action-btn.like-btn.liked {
+  background: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
+  color: white;
+}
+
+.light-theme .destination-action-btn.comment-btn {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+}
+
+.light-theme .destination-action-btn.comment-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.15);
+  color: #4338ca;
 }
 
 /* 新的评论弹窗样式 - 左侧图片预览，右侧评论 */
@@ -1857,8 +2405,15 @@ const submitMessage = () => {
   flex-direction: column;
   padding: 2rem;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--bg-color, #ffffff);
   color: var(--text-color, #000000);
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.modal-comment-section::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .comment-header {
@@ -1874,9 +2429,25 @@ const submitMessage = () => {
   color: var(--text-color, #000000);
 }
 
+.light-theme .comment-title {
+  color: #111827;
+}
+
+.dark-theme .comment-title {
+  color: #f9fafb;
+}
+
 .comment-location {
   font-size: 0.9rem;
   color: var(--text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+.light-theme .comment-location {
+  color: #6b7280;
+}
+
+.dark-theme .comment-location {
+  color: #9ca3af;
 }
 
 /* 点赞区域 */
@@ -1958,7 +2529,14 @@ const submitMessage = () => {
 .comments-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 200px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.comments-list::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .comments-items {
@@ -1974,11 +2552,38 @@ const submitMessage = () => {
   background: var(--bg-secondary, rgba(0, 0, 0, 0.03));
   border-radius: 12px;
   transition: all 0.3s ease;
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.light-theme .comment-item {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.light-theme .comment-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.dark-theme .comment-item {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark-theme .comment-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .comment-item:hover {
   background: var(--bg-secondary, rgba(0, 0, 0, 0.05));
   transform: translateX(4px);
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .comment-user-avatar {
@@ -1998,6 +2603,10 @@ const submitMessage = () => {
 .comment-content-wrapper {
   flex: 1;
   min-width: 0;
+  max-width: calc(100% - 60px);
+  overflow: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .comment-user-name {
@@ -2007,16 +2616,234 @@ const submitMessage = () => {
   color: var(--text-color, #000000);
 }
 
+.light-theme .comment-user-name {
+  color: #111827;
+}
+
+.dark-theme .comment-user-name {
+  color: #f3f4f6;
+}
+
 .comment-text-content {
   font-size: 0.95rem;
   line-height: 1.6;
   margin-bottom: 0.5rem;
   color: var(--text-secondary, rgba(0, 0, 0, 0.8));
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+.light-theme .comment-text-content {
+  color: #374151;
+}
+
+.dark-theme .comment-text-content {
+  color: #d1d5db;
 }
 
 .comment-time {
   font-size: 0.8rem;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.5));
+}
+
+.light-theme .comment-time {
+  color: #9ca3af;
+}
+
+.dark-theme .comment-time {
+  color: #6b7280;
+}
+
+/* 评论操作按钮 */
+.comment-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  align-items: center;
+}
+
+.comment-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.7rem;
+  border: none;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 16px;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.6));
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.comment-action-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.comment-action-btn.liked {
+  background: rgba(255, 107, 157, 0.15);
+  color: #ff6b9d;
+}
+
+.comment-action-btn.liked svg {
+  fill: #ff6b9d;
+  stroke: #ff6b9d;
+}
+
+.comment-action-btn.reply-btn {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.comment-action-btn.reply-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+.comment-action-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.light-theme .comment-action-btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.light-theme .comment-action-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.dark-theme .comment-action-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.dark-theme .comment-action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* 回复输入框 */
+.reply-input-wrapper {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-secondary, rgba(0, 0, 0, 0.03));
+  border-radius: 8px;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+.reply-textarea {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.15));
+  background: var(--bg-color, #ffffff);
+  color: var(--text-color, #000000);
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: all 0.3s ease;
+  margin-bottom: 0.5rem;
+}
+
+.reply-textarea:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.reply-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.reply-submit-btn,
+.reply-cancel-btn {
+  padding: 0.4rem 1rem;
+  border-radius: 16px;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reply-submit-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.reply-submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.reply-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reply-cancel-btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+.reply-cancel-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* 回复列表 */
+.replies-list {
+  margin-top: 0.75rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+.reply-item {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  padding: 0.6rem;
+  background: var(--bg-secondary, rgba(0, 0, 0, 0.02));
+  border-radius: 8px;
+}
+
+.reply-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+.reply-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.reply-user-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 0.2rem;
+  color: var(--text-color, #000000);
+}
+
+.reply-text {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 0.3rem;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.8));
+}
+
+.reply-time {
+  font-size: 0.75rem;
   color: var(--text-secondary, rgba(0, 0, 0, 0.5));
 }
 
@@ -2339,6 +3166,11 @@ const submitMessage = () => {
   transition: color 0.3s ease;
 }
 
+/* 白天模式下的博客标题 */
+.light-theme .blog-main-title {
+  color: #1f2937;
+}
+
 .blog-content {
   display: grid;
   grid-template-columns: 1fr 400px;
@@ -2369,6 +3201,11 @@ const submitMessage = () => {
   letter-spacing: 0.5px;
 }
 
+/* 白天模式下的文章分类 */
+.light-theme .post-category {
+  color: rgba(0, 0, 0, 0.7);
+}
+
 .post-title {
   font-size: 1.2rem;
   font-weight: 500;
@@ -2377,11 +3214,21 @@ const submitMessage = () => {
   line-height: 1.5;
 }
 
+/* 白天模式下的文章标题 */
+.light-theme .post-title {
+  color: #1f2937;
+}
+
 .post-meta {
   display: flex;
   gap: 1rem;
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.6);
+}
+
+/* 白天模式下的文章元信息 */
+.light-theme .post-meta {
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .post-author {
@@ -2422,7 +3269,7 @@ const submitMessage = () => {
 
 /* Gallery Section */
 .gallery-section {
-  padding: 4rem 2rem;
+  padding: 4rem 0;
   background-color: transparent;
   position: relative;
   z-index: 1;
@@ -2475,6 +3322,12 @@ const submitMessage = () => {
   transition: transform 0.3s;
 }
 
+/* 白天模式下的画廊覆盖层 */
+.light-theme .gallery-overlay {
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.3));
+  color: #1f2937;
+}
+
 .gallery-item:hover .gallery-overlay {
   transform: translateY(0);
 }
@@ -2492,7 +3345,7 @@ const submitMessage = () => {
 
 /* Message Board Section */
 .message-board-section {
-  padding: 5rem 2rem;
+  padding: 5rem 0;
   position: relative;
   z-index: 1;
   background-color: transparent;

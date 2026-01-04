@@ -2,6 +2,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 // 加载环境变量
 dotenv.config();
@@ -24,14 +27,61 @@ mongoose.connect(MONGODB_URI)
 });
 
 // 配置中间件
-app.use(cors()); // 允许跨域请求
-app.use(express.json()); // 解析 JSON 请求体
+app.use(cors({
+    origin: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+})); // 允许跨域请求
+
+// 处理 OPTIONS 预检请求
+app.options('*', cors());
+
+// 增加请求体大小限制到50MB（处理图片上传）
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// 配置静态文件服务
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// 确保上传目录存在
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// 配置 multer 文件上传
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    // 生成唯一文件名
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB 限制
+  },
+  fileFilter: function (req, file, cb) {
+    // 只允许图片文件
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('只允许上传图片文件'));
+    }
+  }
+});
 
 // 导入路由
 const authRoutes = require('./routes/auth');
 const articleRoutes = require('./routes/articles');
 const postRoutes = require('./routes/posts');
 const carouselRoutes = require('./routes/carousel');
+const travelStoryRoutes = require('./routes/travelStories');
 
 // 设置根路由
 app.get('/', (req, res) => {
@@ -49,6 +99,38 @@ app.use('/api/posts', postRoutes);
 
 // 挂载轮播图路由
 app.use('/api/carousel', carouselRoutes);
+
+// 挂载旅行故事路由
+app.use('/api/travel-stories', travelStoryRoutes);
+
+// 文件上传路由
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: '没有上传文件'
+      });
+    }
+
+    // 返回文件URL
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({
+      success: true,
+      message: '文件上传成功',
+      data: {
+        url: fileUrl,
+        filename: req.file.filename
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: '文件上传失败',
+      error: error.message
+    });
+  }
+});
 
 // 服务器端口
 const PORT = process.env.PORT || 3000;

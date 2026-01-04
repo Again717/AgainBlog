@@ -28,3 +28,29 @@ export const sendVerificationCode = async (email: string) => {
   return response // 返回完整响应以便访问data.code
 }
 
+// 获取当前用户信息
+export const getCurrentUser = async () => {
+  try {
+    const response = await request.get('/auth/me')
+    return response.data
+  } catch (error: any) {
+    // 如果API不存在或服务器错误，静默处理
+    if (error.response?.status === 404) {
+      console.warn('用户信息刷新API不可用，使用本地缓存')
+      return null
+    }
+    throw error
+  }
+}
+
+// 更新用户资料
+export const updateProfile = async (profileData: {
+  username?: string
+  email?: string
+  bio?: string
+  avatar?: string
+}) => {
+  const response = await request.put('/auth/profile', profileData)
+  return response.data
+}
+

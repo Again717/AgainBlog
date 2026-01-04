@@ -4,7 +4,14 @@
     <section v-if="isLoggedIn" class="profile-header">
       <div class="profile-container">
         <div class="profile-avatar">
-          <img :src="userInfo?.avatar || placeholderAvatar" :alt="userInfo?.username || 'User'" />
+          <img v-if="userInfo?.avatar && !userInfo.avatar.startsWith('data:')" :src="userInfo.avatar" :alt="userInfo?.username || 'User'" />
+          <div v-else class="avatar-placeholder">
+            <svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="75" cy="75" r="75" fill="#F3F4F6"/>
+              <circle cx="75" cy="60" r="22" fill="#C4C4D6"/>
+              <path d="M20 130h110v20H0v-20z" fill="#C4C4D6"/>
+            </svg>
+          </div>
         </div>
         <div class="profile-info">
           <h1 class="profile-name">{{ userInfo?.username || (languageStore.isZh ? '游客' : 'Guest') }}</h1>
@@ -32,7 +39,15 @@
       <div class="post-creator-container">
         <div class="post-creator-header">
           <div class="creator-avatar">
-            <img :src="userInfo?.avatar || placeholderAvatarSmall" :alt="userInfo?.username || 'User'" />
+            <img
+              v-if="userInfo?.avatar && !userInfo.avatar.startsWith('data:')"
+              :src="userInfo.avatar"
+              :alt="userInfo.username || 'User'"
+              @error="handleAvatarError"
+            />
+            <div v-else class="avatar-placeholder">
+              {{ userInfo?.username?.charAt(0).toUpperCase() || 'U' }}
+            </div>
           </div>
           <textarea
             v-model="newPostContent"
@@ -127,11 +142,29 @@
           <article v-for="post in displayedPosts" :key="post._id || post.id" class="post-item">
             <header class="post-header">
               <div class="post-author">
-                <img :src="post.author?.avatar || placeholderAvatarSmall" :alt="post.author?.username || 'User'" class="author-avatar" />
+                <div v-if="getAvatarUrl(post.author?.avatar)" class="author-avatar">
+                  <img :src="getAvatarUrl(post.author?.avatar)" :alt="post.author?.username || 'User'" />
+                </div>
+                <div v-else class="author-avatar avatar-placeholder">
+                  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="20" cy="20" r="20" fill="#F3F4F6"/>
+                    <circle cx="20" cy="15" r="11" fill="#C4C4D6"/>
+                    <path d="M5 32h30v10H0v-10z" fill="#C4C4D6"/>
+                  </svg>
+                </div>
                 <div class="author-info">
                   <div class="author-name">{{ post.author?.username || 'User' }}</div>
                   <div class="post-time">{{ formatTime(post.createdAt) }}</div>
                 </div>
+              </div>
+              <!-- 编辑按钮 - 只对当前用户的动态显示 -->
+              <div v-if="isCurrentUserPost(post)" class="post-edit-btn">
+                <button class="edit-btn" @click="openEditModal(post)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                </button>
               </div>
             </header>
 
@@ -148,7 +181,8 @@
                   :src="img"
                   :alt="`image-${idx}`"
                   class="post-image"
-                  @click="previewImage(img)"
+                  :class="{ 'image-expanded': expandedImages[`${post._id || post.id}-${idx}`] }"
+                  @click="toggleImageExpand(post, idx)"
                 />
               </div>
             </div>
@@ -168,7 +202,16 @@
             <div v-if="showComments[post._id || post.id]" class="comments-section">
               <div v-if="post.comments?.length" class="comments-list">
                 <div v-for="(comment, idx) in post.comments" :key="idx" class="comment-item">
-                  <img :src="comment.user?.avatar || placeholderAvatarSmall" :alt="comment.user?.username || 'User'" class="comment-avatar" />
+                  <div v-if="getAvatarUrl(comment.user?.avatar)" class="comment-avatar">
+                    <img :src="getAvatarUrl(comment.user?.avatar)" :alt="comment.user?.username || 'User'" />
+                  </div>
+                  <div v-else class="comment-avatar avatar-placeholder">
+                    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="15" cy="15" r="15" fill="#F3F4F6"/>
+                      <circle cx="15" cy="11" r="8" fill="#C4C4D6"/>
+                      <path d="M4 24h22v7H0v-7z" fill="#C4C4D6"/>
+                    </svg>
+                  </div>
                   <div class="comment-content">
                     <div class="comment-header">
                       <span class="comment-author">{{ comment.user?.username || 'User' }}</span>
@@ -202,10 +245,46 @@
       </div>
     </section>
 
-    <!-- 图片预览 -->
-    <div v-if="previewImageUrl" class="image-modal" @click="previewImageUrl = null">
-      <img :src="previewImageUrl" alt="preview" @click.stop />
+    <!-- 编辑动态模态框 -->
+    <div v-if="showEditModal" class="edit-modal-overlay" @click.self="closeEditModal">
+      <div class="edit-modal">
+        <div class="edit-modal-header">
+          <h3>编辑动态</h3>
+          <button class="close-btn" @click="closeEditModal">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="edit-modal-body">
+          <textarea
+            v-model="editContent"
+            class="edit-textarea"
+            placeholder="编辑你的动态内容..."
+            rows="4"
+          ></textarea>
+          <div class="edit-images-preview" v-if="editImages.length">
+            <div v-for="(img, index) in editImages" :key="index" class="edit-image-item">
+              <img :src="img" alt="preview" />
+              <button class="remove-image-btn" @click="removeEditImage(index)">×</button>
+            </div>
+          </div>
+        </div>
+        <div class="edit-modal-footer">
+          <button class="delete-btn" @click="confirmDeletePost" :disabled="deleting">
+            {{ deleting ? '删除中...' : '删除动态' }}
+          </button>
+          <div class="footer-actions">
+            <button class="cancel-btn" @click="closeEditModal">取消</button>
+            <button class="save-btn" @click="saveEditPost" :disabled="!editContent.trim() || saving">
+              {{ saving ? '保存中...' : '保存' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
+
   </div>
 </template>
 
@@ -214,6 +293,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useLanguageStore } from '../stores/useLanguageStore'
 import { useUserStore } from '../stores/useUserStore'
 import * as postsApi from '../api/posts'
+import { uploadFile } from '../api/upload'
 
 const languageStore = useLanguageStore()
 const userStore = useUserStore()
@@ -236,11 +316,19 @@ const locationCoords = ref<{ lat: number; lng: number } | null>(null)
 const showComments = ref<Record<string, boolean>>({})
 const commentInputs = ref<Record<string, string>>({})
 
-const previewImageUrl = ref<string | null>(null)
+// 原位图片放大功能
+const expandedImages = ref<Record<string, boolean>>({})
 const activeTab = ref<'latest' | 'hot'>('latest')
 
-const placeholderAvatar = 'https://via.placeholder.com/150'
-const placeholderAvatarSmall = 'https://via.placeholder.com/40'
+// 编辑动态相关
+const showEditModal = ref(false)
+const editingPost = ref<any>(null)
+const editContent = ref('')
+const editImages = ref<string[]>([])
+const saving = ref(false)
+const deleting = ref(false)
+
+// 使用内联SVG代替data URL，避免HTTP请求错误
 
 const postsCount = computed(() => posts.value.length)
 const totalLikes = computed(() => posts.value.reduce((sum, p) => sum + (p.likes?.length || 0), 0))
@@ -285,14 +373,23 @@ const handlePublishPost = async () => {
     }
     const res = await postsApi.createPost(postData)
     if (res.success) {
+      // 清空输入
       newPostContent.value = ''
       newPostImages.value = []
       locationName.value = ''
       locationCoords.value = null
+      showEmojiPicker.value = false
+      // 重新加载动态列表
       await loadPosts()
+      // 显示成功提示（可选，使用更友好的方式）
+      console.log(languageStore.isZh ? '动态发布成功！' : 'Post published successfully!')
+    } else {
+      alert(res.message || (languageStore.isZh ? '发布失败，请重试' : 'Failed to publish'))
     }
   } catch (err: any) {
-    alert(err.response?.data?.message || (languageStore.isZh ? '发布失败，请重试' : 'Failed to publish'))
+    console.error('发布动态错误:', err)
+    const errorMessage = err.response?.data?.message || err.message || (languageStore.isZh ? '发布失败，请检查网络连接或稍后重试' : 'Failed to publish, please check your connection or try again later')
+    alert(errorMessage)
   } finally {
     publishing.value = false
   }
@@ -302,19 +399,83 @@ const handleImageUpload = () => {
   imageInput.value?.click()
 }
 
-const handleImageSelect = (e: Event) => {
+// 压缩图片
+const compressImage = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.8): Promise<string> => {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')!
+    const img = new Image()
+
+    img.onload = () => {
+      // 计算新的尺寸
+      let { width, height } = img
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width
+          width = maxWidth
+        }
+      } else {
+        if (height > maxHeight) {
+          width = (width * maxHeight) / height
+          height = maxHeight
+        }
+      }
+
+      canvas.width = width
+      canvas.height = height
+
+      // 绘制压缩后的图片
+      ctx.drawImage(img, 0, 0, width, height)
+
+      // 转换为base64
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', quality)
+      resolve(compressedDataUrl)
+    }
+
+    img.src = URL.createObjectURL(file)
+  })
+}
+
+const handleImageSelect = async (e: Event) => {
   const files = (e.target as HTMLInputElement).files
   if (!files) return
-  Array.from(files).forEach((file) => {
+
+  // 限制最多上传9张图片
+  const maxFiles = 9
+  const filesToProcess = Array.from(files).slice(0, maxFiles)
+
+  for (const file of filesToProcess) {
     if (file.type.startsWith('image/')) {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        const result = ev.target?.result as string
-        if (result) newPostImages.value.push(result)
+      try {
+        // 检查文件大小，如果大于2MB则压缩
+        if (file.size > 2 * 1024 * 1024) { // 2MB
+          const compressedImage = await compressImage(file)
+          newPostImages.value.push(compressedImage)
+        } else {
+          // 上传文件到服务器
+          const uploadResult = await uploadFile(file)
+          if (uploadResult.success) {
+            newPostImages.value.push(uploadResult.data.url)
+          }
+        }
+      } catch (error) {
+        console.error('图片处理失败:', error)
+        // 如果上传失败，尝试直接上传文件
+        const uploadResult = await uploadFile(file)
+        if (uploadResult.success) {
+          newPostImages.value.push(uploadResult.data.url)
+        } else {
+          console.error('图片上传失败:', uploadResult.message)
+        }
       }
-      reader.readAsDataURL(file)
     }
-  })
+  }
+
+  // 清空input值，允许重复选择同一文件
+  if (imageInput.value) {
+    imageInput.value.value = ''
+  }
 }
 
 const removeImage = (idx: number) => {
@@ -406,8 +567,138 @@ const handleComment = async (post: any) => {
   }
 }
 
-const previewImage = (url: string) => {
-  previewImageUrl.value = url
+const toggleImageExpand = (post: any, imageIndex: number) => {
+  const key = `${post._id || post.id}-${imageIndex}`
+  expandedImages.value[key] = !expandedImages.value[key]
+}
+
+// 判断是否是当前用户的动态
+const isCurrentUserPost = (post: any) => {
+  if (!userInfo.value) return false
+  return post.author?._id === userInfo.value.id || post.author?.id === userInfo.value.id
+}
+
+// 打开编辑模态框
+const openEditModal = (post: any) => {
+  editingPost.value = post
+  editContent.value = post.content
+  editImages.value = post.images || []
+  showEditModal.value = true
+}
+
+// 关闭编辑模态框
+const closeEditModal = () => {
+  showEditModal.value = false
+  editingPost.value = null
+  editContent.value = ''
+  editImages.value = []
+  saving.value = false
+  deleting.value = false
+}
+
+// 保存编辑后的动态
+const saveEditPost = async () => {
+  if (!editingPost.value || !editContent.value.trim()) return
+
+  saving.value = true
+  try {
+    const postId = editingPost.value._id || editingPost.value.id
+    const res = await postsApi.updatePost(postId, {
+      content: editContent.value.trim(),
+      images: editImages.value
+    })
+
+    if (res.success) {
+      // 更新本地数据
+      const index = posts.value.findIndex(p => (p._id || p.id) === postId)
+      if (index !== -1) {
+        posts.value[index] = res.data
+      }
+      closeEditModal()
+      alert(languageStore.isZh ? '动态更新成功！' : 'Post updated successfully!')
+    } else {
+      alert(res.message || (languageStore.isZh ? '更新失败' : 'Update failed'))
+    }
+  } catch (error) {
+    console.error('更新动态失败:', error)
+    alert(languageStore.isZh ? '更新失败，请重试' : 'Update failed, please try again')
+  } finally {
+    saving.value = false
+  }
+}
+
+// 确认删除动态
+const confirmDeletePost = async () => {
+  if (!editingPost.value) return
+
+  if (!confirm(languageStore.isZh ? '确定要删除这条动态吗？此操作不可恢复。' : 'Are you sure you want to delete this post? This action cannot be undone.')) {
+    return
+  }
+
+  deleting.value = true
+  try {
+    const postId = editingPost.value._id || editingPost.value.id
+    const res = await postsApi.deletePost(postId)
+
+    if (res.success) {
+      // 从本地数据中移除
+      const index = posts.value.findIndex(p => (p._id || p.id) === postId)
+      if (index !== -1) {
+        posts.value.splice(index, 1)
+      }
+      closeEditModal()
+      alert(languageStore.isZh ? '动态删除成功！' : 'Post deleted successfully!')
+    } else {
+      alert(res.message || (languageStore.isZh ? '删除失败' : 'Delete failed'))
+    }
+  } catch (error) {
+    console.error('删除动态失败:', error)
+    alert(languageStore.isZh ? '删除失败，请重试' : 'Delete failed, please try again')
+  } finally {
+    deleting.value = false
+  }
+}
+
+// 移除编辑图片
+const removeEditImage = (index: number) => {
+  editImages.value.splice(index, 1)
+}
+
+// 处理头像URL，确保兼容性
+const getAvatarUrl = (avatar: string | undefined): string | undefined => {
+  if (!avatar) return undefined
+
+  // 如果是data URL，不使用（会导致HTTP请求错误），返回undefined使用placeholder
+  if (avatar.startsWith('data:')) {
+    return undefined
+  }
+
+  // 如果是相对路径，添加base URL
+  if (avatar.startsWith('/uploads/')) {
+    return avatar
+  }
+
+  // 如果是完整的HTTP URL，直接返回
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+    return avatar
+  }
+
+  // 其他情况，返回undefined让组件使用placeholder
+  return undefined
+}
+
+// 处理头像加载错误
+const handleAvatarError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.style.display = 'none'
+  // 创建替代的文本头像
+  const parent = img.parentElement
+  if (parent) {
+    const placeholder = document.createElement('div')
+    placeholder.className = 'avatar-placeholder'
+    placeholder.textContent = userInfo.value?.username?.charAt(0).toUpperCase() || 'U'
+    parent.appendChild(placeholder)
+  }
 }
 
 const formatTime = (time: string | Date) => {
@@ -423,18 +714,22 @@ const formatTime = (time: string | Date) => {
   return date.toLocaleDateString()
 }
 
-onMounted(() => {
-  loadPosts()
+onMounted(async () => {
+  await loadPosts()
+  // 刷新用户信息以确保头像等信息是最新的
+  await userStore.refreshUserInfo()
 })
 </script>
 
 <style scoped>
 .community-page {
+  width: 100%;
   min-height: 100vh;
-  background-color: var(--bg-color, #ffffff);
+  background-color: transparent;
   color: var(--text-color, #000000);
   padding-bottom: 2rem;
   transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
 }
 
 .dark-theme .community-page {
@@ -531,7 +826,14 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   position: relative;
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  border: 1px solid var(--border-color, transparent);
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+/* 白天模式下的发布容器 */
+.light-theme .post-creator-container {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .dark-theme .post-creator-container {
@@ -557,6 +859,26 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: white;
+  font-size: 1rem;
+  overflow: hidden;
+}
+
+.avatar-placeholder svg {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
 }
 
 .post-input {
@@ -841,13 +1163,27 @@ onMounted(() => {
   padding: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  border: 1px solid var(--border-color, transparent);
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+/* 白天模式下的动态项 */
+.light-theme .post-item {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .dark-theme .post-item {
   background-color: var(--bg-color, #1a1a1a);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   border-color: var(--border-color, #333333);
+}
+
+.post-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .post-author {
@@ -860,16 +1196,33 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
+  overflow: hidden;
+}
+
+.author-avatar img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
 .author-name {
   font-weight: 700;
+  color: var(--text-color, #000000);
 }
 
 .post-time {
   font-size: 0.9rem;
   color: #777;
+}
+
+/* 白天模式下的时间显示 */
+.light-theme .post-time {
+  color: #6b7280;
+}
+
+/* 夜间模式下的时间显示 */
+.dark-theme .post-time {
+  color: #9ca3af;
 }
 
 .post-content {
@@ -895,23 +1248,43 @@ onMounted(() => {
 
 .post-images {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 0.5rem;
   margin-top: 0.75rem;
+  max-width: 100%;
 }
 
 .post-image {
   width: 100%;
+  max-width: 120px;
+  height: 120px;
   border-radius: 8px;
   object-fit: cover;
   cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.post-image:hover {
+  transform: scale(1.05);
+}
+
+/* 图片原位放大样式 */
+.image-expanded {
+  width: auto !important;
+  max-width: 300px !important;
+  height: auto !important;
+  max-height: 300px !important;
+  z-index: 10 !important;
+  cursor: zoom-out !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+  border-radius: 8px !important;
+  object-fit: contain !important;
 }
 
 .post-actions {
   display: flex;
   gap: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid #f0f0f0;
 }
 
 .action-btn {
@@ -960,6 +1333,12 @@ onMounted(() => {
   width: 30px;
   height: 30px;
   border-radius: 50%;
+  overflow: hidden;
+}
+
+.comment-avatar img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
@@ -997,30 +1376,279 @@ onMounted(() => {
   border-color: var(--border-color, #333333);
 }
 
-.comment-submit-btn {
-  padding: 0.7rem 1.5rem;
-  background: #ff6b9d;
-  color: #fff;
-  border: none;
-  border-radius: 20px;
-  cursor: pointer;
+  .comment-submit-btn {
+    padding: 0.7rem 1.5rem;
+    background: #ff6b9d;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+  }
+
+/* 编辑按钮样式 */
+.post-edit-btn {
+  /* Edit button is positioned to the right by justify-content: space-between on .post-header */
 }
 
-.image-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+.edit-btn {
+  background: none;
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 8px;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: var(--text-secondary, #666);
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
 }
 
-.image-modal img {
-  max-width: 90%;
-  max-height: 90%;
-  object-fit: contain;
+.edit-btn:hover {
+  background-color: var(--bg-secondary, #f5f5f5);
+  border-color: var(--border-color, #ccc);
 }
+
+.dark-theme .edit-btn {
+  border-color: var(--border-color, #333333);
+  color: var(--text-secondary, #cccccc);
+}
+
+.dark-theme .edit-btn:hover {
+  background-color: var(--bg-secondary, #2a2a2a);
+}
+
+/* 编辑模态框样式 */
+.edit-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.edit-modal {
+  background: var(--bg-color, #ffffff);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.edit-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color, #e5e5e5);
+}
+
+.edit-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-color, #000000);
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary, #666);
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.close-btn:hover {
+  background-color: var(--bg-secondary, #f5f5f5);
+}
+
+.edit-modal-body {
+  padding: 1.5rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.edit-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 8px;
+  background: var(--bg-color, #ffffff);
+  color: var(--text-color, #000000);
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.3s ease;
+  margin-bottom: 1rem;
+}
+
+.edit-textarea:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.edit-images-preview {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.edit-image-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color, #e5e5e5);
+}
+
+.edit-image-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.edit-image-item .remove-image-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-color, #e5e5e5);
+  gap: 1rem;
+}
+
+.delete-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.cancel-btn,
+.save-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn {
+  background: var(--bg-secondary, #f5f5f5);
+  color: var(--text-secondary, #666);
+}
+
+.cancel-btn:hover {
+  background: var(--bg-secondary, #e5e5e5);
+}
+
+.save-btn {
+  background: #ff6b9d;
+  color: white;
+}
+
+.save-btn:hover:not(:disabled) {
+  background: #ff5a8d;
+  transform: translateY(-1px);
+}
+
+.save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 夜间模式样式 */
+.dark-theme .edit-modal {
+  background: var(--bg-color, #1a1a1a);
+  border-color: var(--border-color, #333333);
+}
+
+.dark-theme .edit-modal-header {
+  border-bottom-color: var(--border-color, #333333);
+}
+
+.dark-theme .edit-modal-footer {
+  border-top-color: var(--border-color, #333333);
+}
+
+.dark-theme .edit-textarea {
+  background: var(--bg-color, #1a1a1a);
+  border-color: var(--border-color, #333333);
+  color: var(--text-color, #ffffff);
+}
+
+.dark-theme .edit-textarea:focus {
+  border-color: #667eea;
+}
+
+.dark-theme .edit-image-item {
+  border-color: var(--border-color, #333333);
+}
+
+.dark-theme .close-btn:hover {
+  background-color: var(--bg-secondary, #2a2a2a);
+}
+
+.dark-theme .cancel-btn {
+  background: var(--bg-secondary, #2a2a2a);
+  color: var(--text-secondary, #cccccc);
+}
+
+.dark-theme .cancel-btn:hover {
+  background: var(--bg-secondary, #333333);
+}
+
 
 @media (max-width: 768px) {
   .profile-container,
@@ -1034,6 +1662,7 @@ onMounted(() => {
   }
 }
 </style>
+
 
 
 

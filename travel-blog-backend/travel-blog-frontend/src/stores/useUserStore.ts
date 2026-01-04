@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia'
+import { getCurrentUser } from '../api/auth'
 
 interface UserInfo {
   id: string
   username: string
   email?: string
+  avatar?: string
   role?: string
 }
 
@@ -33,6 +35,22 @@ export const useUserStore = defineStore('user', {
     setUserInfo(userInfo: UserInfo) {
       this.userInfo = userInfo
       localStorage.setItem('userInfo', JSON.stringify(userInfo))
+    },
+    async refreshUserInfo() {
+      if (!this.token) return
+
+      try {
+        const response = await getCurrentUser()
+        if (response && response.user) {
+          this.setUserInfo(response.user)
+          console.log('✅ 用户信息已刷新')
+        } else {
+          console.log('ℹ️ 使用本地缓存的用户信息')
+        }
+      } catch (error) {
+        // 静默处理错误，避免影响应用启动
+        console.warn('用户信息刷新失败，使用本地缓存信息')
+      }
     },
     clearUser() {
       this.token = null

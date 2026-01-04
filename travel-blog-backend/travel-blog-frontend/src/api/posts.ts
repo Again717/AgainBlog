@@ -40,3 +40,20 @@ export const favoritePost = async (postId: string) => {
   return response.data
 }
 
+// 更新动态（需要认证）
+export const updatePost = async (postId: string, postData: {
+  content: string
+  images?: string[]
+}) => {
+  const response = await request.post(`/posts/update/${postId}`, postData)
+  return response.data
+}
+
+// 删除动态（需要认证）
+export const deletePost = async (postId: string) => {
+  const response = await request.post(`/posts/delete/${postId}`)
+  return response.data
+}
+
+// Force reload marker: updated at 2026-01-02
+
