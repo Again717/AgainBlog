@@ -7,15 +7,12 @@ const router = express.Router();
 // GET /api/travel-stories - 获取所有旅行故事
 router.get('/', async (req, res) => {
     try {
-        console.log('Travel stories route accessed');
         const travelStories = await TravelStory.find({ isActive: true })
             .populate('likes', 'username avatar')
             .populate('comments.user', 'username avatar')
             .populate('comments.likes', 'username')
             .populate('comments.replies.user', 'username avatar')
             .sort({ order: 1, createdAt: -1 });
-
-        console.log('Found travel stories:', travelStories.length);
 
         // 格式化数据以匹配前端期望的格式
         const formattedStories = travelStories.map(story => ({
@@ -32,6 +29,7 @@ router.get('/', async (req, res) => {
             commentList: story.comments.map(comment => ({
                 _id: comment._id,
                 user: comment.user.username,
+                userId: comment.user._id.toString(),
                 userAvatar: comment.user.avatar,
                 content: comment.content,
                 time: comment.time,
@@ -108,6 +106,7 @@ router.post('/:id/like', authMiddleware, async (req, res) => {
             commentList: updatedStory.comments.map(comment => ({
                 _id: comment._id,
                 user: comment.user.username,
+                userId: comment.user._id.toString(),
                 userAvatar: comment.user.avatar,
                 content: comment.content,
                 time: comment.time,
@@ -187,6 +186,7 @@ router.post('/:id/comment', authMiddleware, async (req, res) => {
             commentList: updatedStory.comments.map(comment => ({
                 _id: comment._id,
                 user: comment.user.username,
+                userId: comment.user._id.toString(),
                 userAvatar: comment.user.avatar,
                 content: comment.content,
                 time: comment.time,
@@ -271,6 +271,7 @@ router.post('/:storyId/comments/:commentId/like', authMiddleware, async (req, re
             commentList: updatedStory.comments.map(comment => ({
                 _id: comment._id,
                 user: comment.user.username,
+                userId: comment.user._id.toString(),
                 userAvatar: comment.user.avatar,
                 content: comment.content,
                 time: comment.time,
@@ -295,6 +296,91 @@ router.post('/:storyId/comments/:commentId/like', authMiddleware, async (req, re
         res.status(500).json({
             success: false,
             message: '操作失败',
+            error: error.message
+        });
+    }
+});
+
+// DELETE /api/travel-stories/:storyId/comments/:commentId - 删除评论（需要认证）
+router.delete('/:storyId/comments/:commentId', authMiddleware, async (req, res) => {
+    try {
+        const { storyId, commentId } = req.params;
+        const userId = req.user?.id || req.user?._id;
+
+        const story = await TravelStory.findById(storyId);
+        if (!story) {
+            return res.status(404).json({
+                success: false,
+                message: '旅行故事不存在'
+            });
+        }
+
+        const comment = story.comments.id(commentId);
+        if (!comment) {
+            return res.status(404).json({
+                success: false,
+                message: '评论不存在'
+            });
+        }
+
+        // 检查是否是评论的作者
+        if (comment.user.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: '没有权限删除此评论'
+            });
+        }
+
+        // 删除评论
+        story.comments.pull(commentId);
+        await story.save();
+
+        const updatedStory = await TravelStory.findById(storyId)
+            .populate('likes', 'username avatar')
+            .populate('comments.user', 'username avatar')
+            .populate('comments.likes', 'username')
+            .populate('comments.replies.user', 'username avatar');
+
+        // 格式化响应数据
+        const formattedStory = {
+            _id: updatedStory._id,
+            image: updatedStory.image,
+            name: updatedStory.name,
+            location: updatedStory.location,
+            description: updatedStory.description,
+            count: updatedStory.count,
+            themeColor: updatedStory.themeColor,
+            likes: updatedStory.likesCount,
+            comments: updatedStory.commentsCount,
+            liked: updatedStory.likes.some(likeId => likeId.toString() === userId.toString()),
+            commentList: updatedStory.comments.map(comment => ({
+                _id: comment._id,
+                user: comment.user.username,
+                userId: comment.user._id.toString(),
+                userAvatar: comment.user.avatar,
+                content: comment.content,
+                time: comment.time,
+                likes: comment.likes.length,
+                liked: comment.likes.some(likeId => likeId.toString() === userId.toString()),
+                replies: comment.replies.map(reply => ({
+                    _id: reply._id,
+                    user: reply.user.username,
+                    userAvatar: reply.user.avatar,
+                    content: reply.content,
+                    time: reply.time
+                }))
+            }))
+        };
+
+        res.json({
+            success: true,
+            message: '评论删除成功',
+            data: formattedStory
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: '删除评论失败',
             error: error.message
         });
     }
@@ -358,6 +444,7 @@ router.post('/:storyId/comments/:commentId/reply', authMiddleware, async (req, r
             commentList: updatedStory.comments.map(comment => ({
                 _id: comment._id,
                 user: comment.user.username,
+                userId: comment.user._id.toString(),
                 userAvatar: comment.user.avatar,
                 content: comment.content,
                 time: comment.time,

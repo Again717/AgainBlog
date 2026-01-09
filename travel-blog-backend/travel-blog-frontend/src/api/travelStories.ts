@@ -18,6 +18,7 @@ export interface TravelStory {
 export interface Comment {
   _id: string
   user: string
+  userId?: string // 添加用户ID用于删除权限检查
   userAvatar?: string
   content: string
   time: string
@@ -81,5 +82,15 @@ export const replyTravelStoryComment = async (storyId: string, commentId: string
   data: TravelStory
 }> => {
   const response = await request.post(`/travel-stories/${storyId}/comments/${commentId}/reply`, { content })
+  return response.data
+}
+
+// 删除评论（需要认证）
+export const deleteTravelStoryComment = async (storyId: string, commentId: string): Promise<{
+  success: boolean
+  message: string
+  data: TravelStory
+}> => {
+  const response = await request.delete(`/travel-stories/${storyId}/comments/${commentId}`)
   return response.data
 }

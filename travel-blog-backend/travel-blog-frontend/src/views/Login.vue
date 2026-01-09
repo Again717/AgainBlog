@@ -378,6 +378,10 @@ const handleSubmit = async () => {
       
       if (loginResponse.token && loginResponse.user) {
         userStore.setToken(loginResponse.token)
+        // 确保头像URL是完整的
+        if (loginResponse.user.avatar && loginResponse.user.avatar.startsWith('/uploads/')) {
+          loginResponse.user.avatar = `http://localhost:3000${loginResponse.user.avatar}`
+        }
         userStore.setUserInfo(loginResponse.user)
         // 跳转到原始路径或首页
         const redirect = (route.query.redirect as string) || '/'

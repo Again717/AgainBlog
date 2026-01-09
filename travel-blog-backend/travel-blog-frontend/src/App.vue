@@ -19,7 +19,7 @@
           <!-- 用户头像（登录后显示） -->
           <div v-if="userStore.token && userStore.userInfo" class="user-avatar-nav" @mouseenter="showUserMenu = true" @mouseleave="showUserMenu = false">
             <div class="avatar-circle">
-              <img v-if="userStore.userInfo.avatar && !userStore.userInfo.avatar.startsWith('data:')" :src="userStore.userInfo.avatar" :alt="'Avatar for ' + userStore.userInfo.username" @error="handleAvatarError" />
+              <img v-if="getAvatarUrl(userStore.userInfo.avatar)" :src="getAvatarUrl(userStore.userInfo.avatar)" :alt="'Avatar for ' + userStore.userInfo.username" @error="handleAvatarError" />
               <span v-else>{{ userStore.userInfo.username?.charAt(0).toUpperCase() || 'U' }}</span>
             </div>
             <!-- 下拉菜单 -->
@@ -27,7 +27,7 @@
               <div v-if="showUserMenu" class="user-menu-dropdown">
                 <div class="menu-header">
                   <div class="menu-avatar">
-                    <img v-if="userStore.userInfo.avatar && !userStore.userInfo.avatar.startsWith('data:')" :src="userStore.userInfo.avatar" alt="avatar" />
+                    <img v-if="getAvatarUrl(userStore.userInfo.avatar)" :src="getAvatarUrl(userStore.userInfo.avatar)" alt="avatar" />
                     <span v-else>{{ userStore.userInfo.username?.charAt(0).toUpperCase() || 'U' }}</span>
                   </div>
                   <div class="menu-user-info">
@@ -86,94 +86,22 @@
     <WelcomeModal v-if="showWelcome" @close="handleWelcomeClose" />
 
     <!-- 用户信息编辑弹窗 -->
-    <div v-if="showUserProfileModal" class="user-profile-modal-overlay" @click.self="showUserProfileModal = false">
-      <div class="user-profile-modal">
-        <div class="modal-header">
-          <h3>{{ languageStore.isZh ? '编辑个人信息' : 'Edit Profile' }}</h3>
-          <button class="modal-close-btn" @click="showUserProfileModal = false">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
+    <ProfileEditModal
+      v-if="showUserProfileModal"
+      :user-info="userStore.userInfo"
+      @close="showUserProfileModal = false"
+      @saved="handleProfileSaved"
+      @email-change="handleEmailChangeRequest"
+    />
 
-        <div class="modal-body">
-          <form @submit.prevent="updateUserProfile" class="profile-form">
-            <div class="form-group">
-              <label>{{ languageStore.isZh ? '用户名' : 'Username' }}</label>
-              <input
-                v-model="editForm.username"
-                type="text"
-                :placeholder="languageStore.isZh ? '请输入用户名' : 'Enter username'"
-                required
-              />
-            </div>
-
-            <div class="form-group">
-              <label>{{ languageStore.isZh ? '邮箱' : 'Email' }}</label>
-              <input
-                v-model="editForm.email"
-                type="email"
-                :placeholder="languageStore.isZh ? '请输入邮箱' : 'Enter email'"
-                required
-              />
-            </div>
-
-            <div class="form-group">
-              <label>{{ languageStore.isZh ? '个人简介' : 'Bio' }}</label>
-              <textarea
-                v-model="editForm.bio"
-                :placeholder="languageStore.isZh ? '介绍一下自己...' : 'Tell us about yourself...'"
-                rows="3"
-              ></textarea>
-            </div>
-
-            <div class="form-group">
-              <label>{{ languageStore.isZh ? '头像' : 'Avatar' }}</label>
-              <div class="avatar-upload-section">
-                <input
-                  ref="avatarInput"
-                  type="file"
-                  accept="image/*"
-                  @change="handleAvatarSelect"
-                  style="display: none"
-                />
-                <div class="current-avatar" @click="triggerAvatarUpload">
-                  <img v-if="editForm.avatar && !editForm.avatar.startsWith('data:')" :src="editForm.avatar" :alt="languageStore.isZh ? '当前头像' : 'Current Avatar'" />
-                  <div v-else class="avatar-placeholder">
-                    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="40" cy="40" r="40" fill="#F3F4F6"/>
-                      <circle cx="40" cy="30" r="15" fill="#C4C4D6"/>
-                      <path d="M20 55h40v15H5v-15z" fill="#C4C4D6"/>
-                    </svg>
-                  </div>
-                  <div class="avatar-overlay">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M14.828 14.828a4 4 0 0 1-5.656 0M9 10h1.586a1 1 0 0 1 .707.293l.707.707A1 1 0 0 0 12.414 11H13a2 2 0 0 1 2 2v1.172a2 2 0 0 1-.586 1.414l-1.707 1.707a1 1 0 0 1-1.414 0L9.586 14A2 2 0 0 1 9 12.586V12a2 2 0 0 1 2-2z"></path>
-                      <circle cx="12" cy="12" r="10"></circle>
-                    </svg>
-                    <span>{{ languageStore.isZh ? '更换头像' : 'Change Avatar' }}</span>
-                  </div>
-                </div>
-                <button type="button" class="remove-avatar-btn" v-if="editForm.avatar" @click="removeAvatar">
-                  {{ languageStore.isZh ? '移除头像' : 'Remove Avatar' }}
-                </button>
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button type="submit" class="save-btn" :disabled="updating">
-                {{ updating ? (languageStore.isZh ? '保存中...' : 'Saving...') : (languageStore.isZh ? '保存' : 'Save') }}
-              </button>
-              <button type="button" class="cancel-btn" @click="showUserProfileModal = false">
-                {{ languageStore.isZh ? '取消' : 'Cancel' }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+    <!-- 邮箱修改弹窗 -->
+    <EmailChangeModal
+      v-if="showEmailModal"
+      :user-info="userStore.userInfo"
+      :mode="emailModalMode"
+      @close="showEmailModal = false"
+      @confirmed="handleEmailChangeConfirmed"
+    />
 
     <!-- 主要内容区域 -->
     <main class="main-content">
@@ -201,11 +129,11 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import WelcomeModal from './components/WelcomeModal.vue'
+import ProfileEditModal from './components/ProfileEditModal.vue'
+import EmailChangeModal from './components/EmailChangeModal.vue'
 import { useLanguageStore } from './stores/useLanguageStore'
 import { useThemeStore } from './stores/useThemeStore'
 import { useUserStore } from './stores/useUserStore'
-import { updateProfile, login } from './api/auth'
-import { uploadFile } from './api/upload'
 
 const route = useRoute()
 const router = useRouter()
@@ -216,15 +144,10 @@ const userStore = useUserStore()
 const isHeaderHidden = ref(false)
 const showBackToTop = ref(false)
 const showUserMenu = ref(false)
+// 模态框状态
 const showUserProfileModal = ref(false)
-const updating = ref(false)
-const avatarInput = ref<HTMLInputElement | null>(null)
-const editForm = ref({
-  username: '',
-  email: '',
-  bio: '',
-  avatar: ''
-})
+const showEmailModal = ref(false)
+const emailModalMode = ref<'password' | 'email'>('password')
 
 // 检查当前路由是否是社区页面
 const isCommunityPage = computed(() => route.path === '/community')
@@ -245,6 +168,29 @@ const refreshUserInfo = async () => {
       console.warn('刷新用户信息失败，保持当前信息')
     }
   }
+}
+
+// 处理头像URL，确保兼容性
+const getAvatarUrl = (avatar: string | undefined): string | undefined => {
+  if (!avatar) return undefined
+
+  // 如果是data URL，不使用（会导致HTTP请求错误），返回undefined使用placeholder
+  if (avatar.startsWith('data:')) {
+    return undefined
+  }
+
+  // 如果是相对路径，添加完整的base URL
+  if (avatar.startsWith('/uploads/')) {
+    return `http://localhost:3000${avatar}`
+  }
+
+  // 如果是完整的HTTP URL，直接返回
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+    return avatar
+  }
+
+  // 其他情况，返回undefined让组件使用placeholder
+  return undefined
 }
 
 // 处理头像加载错误
@@ -317,77 +263,26 @@ const handleWelcomeClose = () => {
 
 // 打开用户信息编辑弹窗
 const openUserProfileModal = () => {
-  if (userStore.userInfo) {
-    editForm.value = {
-      username: userStore.userInfo.username || '',
-      email: userStore.userInfo.email || '',
-      bio: userStore.userInfo.bio || '',
-      avatar: userStore.userInfo.avatar || ''
-    }
-  }
   showUserProfileModal.value = true
 }
 
-// 更新用户信息
-const updateUserProfile = async () => {
-  if (!userStore.userInfo) return
-
-  updating.value = true
-  try {
-    // 调用后端API更新用户信息
-    const updateData = {
-      username: editForm.value.username,
-      email: editForm.value.email,
-      bio: editForm.value.bio,
-      avatar: editForm.value.avatar
-    }
-
-    const response = await updateProfile(updateData)
-
-    // 更新本地存储和状态
-    userStore.setUserInfo(response.user)
-    if (response.token) {
-      userStore.setToken(response.token)
-    }
-
-    showUserProfileModal.value = false
-
-    // 显示成功提示
-    alert(languageStore.isZh ? '个人信息更新成功！' : 'Profile updated successfully!')
-  } catch (error) {
-    console.error('更新用户信息失败:', error)
-    alert(languageStore.isZh ? '更新失败，请重试' : 'Update failed, please try again')
-  } finally {
-    updating.value = false
-  }
+// 处理个人资料保存
+const handleProfileSaved = (user: any) => {
+  showUserProfileModal.value = false
+  // 用户store已在组件内部更新
 }
 
-// 头像上传相关方法
-const triggerAvatarUpload = () => {
-  avatarInput.value?.click()
+// 处理邮箱修改请求
+const handleEmailChangeRequest = (mode: 'password' | 'email') => {
+  emailModalMode.value = mode
+  showEmailModal.value = true
 }
 
-const handleAvatarSelect = async (e: Event) => {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (file && file.type.startsWith('image/')) {
-    try {
-      // 上传文件到服务器
-      const uploadResult = await uploadFile(file)
-      if (uploadResult.success) {
-        editForm.value.avatar = uploadResult.data.url
-      }
-    } catch (error) {
-      console.error('头像上传失败:', error)
-      alert(languageStore.isZh ? '头像上传失败，请重试' : 'Avatar upload failed, please try again')
-    }
-  }
-}
-
-const removeAvatar = () => {
-  editForm.value.avatar = ''
-  if (avatarInput.value) {
-    avatarInput.value.value = ''
-  }
+// 处理邮箱修改确认
+const handleEmailChangeConfirmed = (user: any) => {
+  showEmailModal.value = false
+  showUserProfileModal.value = false // 关闭主弹窗
+  // 用户store已在组件内部更新
 }
 
 const handleLogout = () => {
@@ -1318,6 +1213,272 @@ body.dark-theme {
   .save-btn,
   .cancel-btn {
     width: 100%;
+  }
+}
+
+/* 邮箱修改相关样式 */
+.current-email-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.current-email {
+  font-weight: 500;
+  color: #374151;
+}
+
+.email-change-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.email-change-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.email-change-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.password-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.code-btn:hover {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+/* 邮箱修改弹窗样式 */
+.email-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.email-modal {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: color 0.2s;
+}
+
+.modal-close-btn:hover {
+  color: #374151;
+  background: #f3f4f6;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.current-email-info {
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid #3b82f6;
+}
+
+.info-label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.current-email-value {
+  color: #6b7280;
+  font-family: monospace;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.cancel-btn {
+  padding: 0.75rem 1.5rem;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #e5e7eb;
+}
+
+.confirm-btn {
+  padding: 0.75rem 1.5rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.email-input-group {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.email-input-group .form-input {
+  flex: 1;
+}
+
+.send-verification-btn {
+  padding: 0.75rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.send-verification-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.send-verification-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.verification-hint {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .current-email-display {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .email-change-buttons {
+    flex-direction: column;
+    gap: 0.375rem;
+    width: 100%;
+  }
+
+  .email-change-btn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .email-modal {
+    margin: 1rem;
+    width: calc(100% - 2rem);
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 1rem;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+  }
+
+  .cancel-btn,
+  .confirm-btn {
+    width: 100%;
+  }
+
+  .email-input-group {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .send-verification-btn {
+    align-self: flex-start;
   }
 }
 </style>

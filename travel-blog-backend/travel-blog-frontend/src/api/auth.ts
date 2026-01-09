@@ -43,12 +43,19 @@ export const getCurrentUser = async () => {
   }
 }
 
+// 发送邮箱验证邮件
+export const sendEmailVerification = async (email: string) => {
+  const response = await request.post('/auth/send-email-verification', { email })
+  return response.data
+}
+
 // 更新用户资料
 export const updateProfile = async (profileData: {
   username?: string
   email?: string
   bio?: string
   avatar?: string
+  emailVerificationCode?: string
 }) => {
   const response = await request.put('/auth/profile', profileData)
   return response.data

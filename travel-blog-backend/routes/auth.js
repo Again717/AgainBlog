@@ -320,11 +320,11 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// 更新用户资料（需要认证）
-router.put('/profile', authMiddleware, async (req, res) => {
+// 发送邮箱修改验证码
+router.post('/send-email-verification', authMiddleware, async (req, res) => {
     try {
         const userId = req.user?.id || req.user?._id;
-        const { username, email, bio, avatar } = req.body;
+        const { email } = req.body;
 
         if (!userId) {
             return res.status(401).json({
@@ -332,23 +332,172 @@ router.put('/profile', authMiddleware, async (req, res) => {
             });
         }
 
-        // 检查用户名和邮箱是否已被其他用户使用
-        if (username || email) {
+        // 获取用户信息
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                message: '用户不存在'
+            });
+        }
+
+        // 验证邮箱格式
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({
+                message: '邮箱格式不正确'
+            });
+        }
+
+        // 检查邮箱是否已被其他用户使用
+        const existingUser = await User.findOne({
+            _id: { $ne: userId },
+            email: email
+        });
+
+        if (existingUser) {
+            return res.status(400).json({
+                message: '该邮箱已被其他用户使用'
+            });
+        }
+
+        // 生成验证码
+        const code = generateVerificationCode();
+
+        // 存储验证码（5分钟有效期）
+        verificationCodes.set(`email_change_${userId}`, {
+            code,
+            email,
+            expiresAt: Date.now() + 5 * 60 * 1000 // 5分钟
+        });
+
+        // 发送验证码到当前邮箱（而不是新邮箱）
+        if (!transporter) {
+            return res.status(500).json({
+                message: '邮件服务未配置'
+            });
+        }
+
+        const mailOptions = {
+            from: `"旅行博客" <${process.env.EMAIL_USER}>`,
+            to: user.email, // 发送到当前邮箱
+            subject: '旅行博客 - 邮箱修改验证',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                  <div style="background: linear-gradient(135deg, #ff6b9d, #ff8fab); padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                    <h1 style="color: #ffffff; margin: 0;">旅行博客</h1>
+                  </div>
+                <h2 style="color: #333;">邮箱修改验证</h2>
+                  <p style="color: #666; font-size: 16px;">您正在尝试修改邮箱地址为：<strong>${email}</strong></p>
+                  <p style="color: #666; font-size: 16px;">验证码是：</p>
+                  <div style="background: #f5f5f5; padding: 30px; text-align: center; font-size: 36px; font-weight: bold; color: #ff6b9d; letter-spacing: 8px; margin: 30px 0; border-radius: 8px; border: 2px dashed #ff6b9d;">
+                  ${code}
+                  </div>
+                  <p style="color: #666; font-size: 14px;">验证码有效期为 <strong>5分钟</strong>，请勿泄露给他人。</p>
+                  <p style="color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">如果这不是您的操作，请忽略此邮件。</p>
+                </div>
+              `,
+            text: `您的邮箱修改验证码是：${code}，新邮箱：${email}，有效期为5分钟。`
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log('邮箱验证邮件发送成功:', user.email);
+
+        res.json({
+            message: '验证码已发送到当前邮箱'
+        });
+    } catch (error) {
+        console.error('发送邮箱验证邮件失败:', error);
+        res.status(500).json({
+            message: '发送验证码失败，请稍后重试',
+            error: error.message
+        });
+    }
+});
+
+// 更新用户资料（需要认证）
+router.put('/profile', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user?.id || req.user?._id;
+        const { username, email, bio, signature, avatar, emailVerificationCode, currentPassword } = req.body;
+
+        if (!userId) {
+            return res.status(401).json({
+                message: '未授权，请先登录'
+            });
+        }
+
+        // 获取用户信息
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                message: '用户不存在'
+            });
+        }
+
+        // 检查用户名是否已被其他用户使用
+        if (username && username !== user.username) {
             const existingUser = await User.findOne({
-                $and: [
-                    { _id: { $ne: userId } },
-                    {
-                        $or: [
-                            username ? { username: username } : {},
-                            email ? { email: email } : {}
-                        ]
-                    }
-                ]
+                _id: { $ne: userId },
+                username: username
             });
 
             if (existingUser) {
                 return res.status(400).json({
-                    message: '用户名或邮箱已被使用'
+                    message: '用户名已被使用'
+                });
+            }
+        }
+
+        // 处理邮箱变更（需要验证）
+        if (email && email !== user.email) {
+            // 检查邮箱是否已被其他用户使用
+            const existingUser = await User.findOne({
+                _id: { $ne: userId },
+                email: email
+            });
+
+            if (existingUser) {
+                return res.status(400).json({
+                    message: '该邮箱已被其他用户使用'
+                });
+            }
+
+            // 验证方式：密码或邮箱验证码
+            if (currentPassword) {
+                // 密码验证
+                const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+                if (!isPasswordValid) {
+                    return res.status(400).json({
+                        message: '密码错误'
+                    });
+                }
+            } else if (emailVerificationCode) {
+                // 邮箱验证码验证
+                const stored = verificationCodes.get(`email_change_${userId}`);
+                if (!stored || stored.email !== email) {
+                    return res.status(400).json({
+                        message: '邮箱验证失败'
+                    });
+                }
+
+                if (Date.now() > stored.expiresAt) {
+                    verificationCodes.delete(`email_change_${userId}`);
+                    return res.status(400).json({
+                        message: '验证码已过期'
+                    });
+                }
+
+                if (stored.code !== emailVerificationCode) {
+                    return res.status(400).json({
+                        message: '验证码错误'
+                    });
+                }
+
+                // 验证成功，删除验证码
+                verificationCodes.delete(`email_change_${userId}`);
+            } else {
+                return res.status(400).json({
+                    message: '修改邮箱需要密码验证或邮箱验证码'
                 });
             }
         }
@@ -357,6 +506,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
         const updateData = {};
         if (username) updateData.username = username;
         if (email) updateData.email = email;
+        if (signature !== undefined) updateData.signature = signature;
         if (bio !== undefined) updateData.bio = bio;
         if (avatar !== undefined) updateData.avatar = avatar;
 

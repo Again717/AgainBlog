@@ -42,6 +42,10 @@ export const useUserStore = defineStore('user', {
       try {
         const response = await getCurrentUser()
         if (response && response.user) {
+          // 确保头像URL是完整的
+          if (response.user.avatar && response.user.avatar.startsWith('/uploads/')) {
+            response.user.avatar = `http://localhost:3000${response.user.avatar}`
+          }
           this.setUserInfo(response.user)
           console.log('✅ 用户信息已刷新')
         } else {

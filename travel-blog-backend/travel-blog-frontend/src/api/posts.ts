@@ -55,5 +55,19 @@ export const deletePost = async (postId: string) => {
   return response.data
 }
 
-// Force reload marker: updated at 2026-01-02
+// 获取留言板数据
+export const getMessages = async () => {
+  // 这里可以从后端API获取留言板数据
+  // 暂时返回模拟数据，后续可以改为真实API
+  const response = await request.get('/messages')
+  return response.data
+}
+
+// 发布留言
+export const createMessage = async (content: string) => {
+  const response = await request.post('/messages', { content })
+  return response.data
+}
+
+// Force reload marker: updated at 2026-01-06
 

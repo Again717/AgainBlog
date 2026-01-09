@@ -360,7 +360,7 @@
                 >
                   <div class="comment-main">
                     <div class="comment-avatar">
-                      <img v-if="comment.userAvatar" :src="comment.userAvatar" :alt="comment.user" />
+                      <img v-if="getAvatarUrl(comment.userAvatar)" :src="getAvatarUrl(comment.userAvatar)" :alt="comment.user" />
                       <span v-else>{{ comment.user.charAt(0).toUpperCase() }}</span>
                     </div>
                     <div class="comment-content">
@@ -423,7 +423,7 @@
                       class="reply-item"
                     >
                       <div class="reply-avatar">
-                        <img v-if="reply.userAvatar" :src="reply.userAvatar" :alt="reply.user" />
+                        <img v-if="getAvatarUrl(reply.userAvatar)" :src="getAvatarUrl(reply.userAvatar)" :alt="reply.user" />
                         <span v-else>{{ reply.user.charAt(0).toUpperCase() }}</span>
                       </div>
                       <div class="reply-content">
@@ -467,8 +467,14 @@
         <div class="message-board-content">
           <!-- 留言列表 -->
           <div class="messages-list">
-            <div class="message-item" v-for="(message, index) in messages" :key="index">
-              <div class="message-avatar">{{ message.avatar }}</div>
+            <div v-if="loadingMessages" class="loading-messages">
+              <p>加载中...</p>
+            </div>
+            <div v-else-if="messages.length > 0" class="message-item" v-for="(message, index) in messages" :key="index">
+              <div class="message-avatar">
+                <img v-if="getAvatarUrl(message.userAvatar)" :src="getAvatarUrl(message.userAvatar)" :alt="message.author" />
+                <span v-else>{{ message.avatar }}</span>
+              </div>
               <div class="message-content">
                 <div class="message-header">
                   <span class="message-author">{{ message.author }}</span>
@@ -477,7 +483,7 @@
                 <p class="message-text">{{ message.text }}</p>
               </div>
             </div>
-            <div v-if="messages.length === 0" class="empty-messages">
+            <div v-else class="empty-messages">
               <p>还没有留言，快来留下第一条吧～</p>
             </div>
           </div>
@@ -605,7 +611,10 @@
                     :key="idx"
                     class="comment-item"
                   >
-                    <div class="comment-user-avatar">{{ comment.user.charAt(0) }}</div>
+                    <div class="comment-user-avatar">
+                      <img v-if="getAvatarUrl(comment.userAvatar)" :src="getAvatarUrl(comment.userAvatar)" :alt="comment.user" />
+                      <span v-else>{{ comment.user.charAt(0).toUpperCase() }}</span>
+                    </div>
                     <div class="comment-content-wrapper">
                       <div class="comment-user-name">{{ comment.user }}</div>
                       <div class="comment-text-content">{{ comment.content }}</div>
@@ -622,7 +631,7 @@
                           </svg>
                           <span>{{ comment.likes || 0 }}</span>
                         </button>
-                        <button 
+                        <button
                           class="comment-action-btn reply-btn"
                           @click="showReplyInput(activeCommentIndex!, idx)"
                           :title="languageStore.isZh ? '回复' : 'Reply'"
@@ -631,6 +640,21 @@
                             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                           </svg>
                           <span>{{ languageStore.isZh ? '回复' : 'Reply' }}</span>
+                        </button>
+                        <!-- 删除按钮 - 只有评论作者才能看到 -->
+                        <button
+                          v-if="userStore.userInfo && comment.userId === userStore.userInfo.id"
+                          class="comment-action-btn delete-btn"
+                          @click="deleteComment(activeCommentIndex!, idx)"
+                          :title="languageStore.isZh ? '删除评论' : 'Delete Comment'"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                          </svg>
+                          <span>{{ languageStore.isZh ? '删除' : 'Delete' }}</span>
                         </button>
                       </div>
                       <!-- 回复输入框 -->
@@ -731,8 +755,10 @@ import {
   commentTravelStory,
   likeTravelStoryComment,
   replyTravelStoryComment,
+  deleteTravelStoryComment,
   type TravelStory
 } from '../api/travelStories'
+import { getPosts } from '../api/posts'
 
 const { t, language } = useI18n()
 const userStore = useUserStore()
@@ -887,6 +913,40 @@ const loadTravelStories = async () => {
   }
 }
 
+// 加载留言板数据
+const loadMessages = async () => {
+  try {
+    loadingMessages.value = true
+    // 暂时使用硬编码数据，后续可以改为从API获取
+    messages.value = [
+      {
+        avatar: userStore.userInfo?.username?.charAt(0).toUpperCase() || '旅',
+        author: userStore.userInfo?.username || '旅行者',
+        time: '2小时前',
+        text: '这里的风景太美了！下次一定要来这里！',
+        userId: userStore.userInfo?.id,
+        userAvatar: userStore.userInfo?.avatar
+      },
+      {
+        avatar: '游',
+        author: '游游',
+        time: '1天前',
+        text: '分享了很多实用的旅行 tips，非常有用！'
+      },
+      {
+        avatar: '客',
+        author: '游客123',
+        time: '3天前',
+        text: '期待更多精彩的内容和故事！'
+      }
+    ]
+  } catch (error) {
+    console.error('加载留言板数据失败:', error)
+  } finally {
+    loadingMessages.value = false
+  }
+}
+
 let autoPlayTimer: number | null = null
 
 const nextSlide = () => {
@@ -934,6 +994,7 @@ const stopAutoPlay = () => {
 onMounted(async () => {
   await loadCarouselImages()
   await loadTravelStories()
+  await loadMessages()
   startAutoPlay()
 })
 
@@ -1029,6 +1090,29 @@ const activeDestination = computed(() => {
   if (activeCommentIndex.value === null) return null
   return destinations.value[activeCommentIndex.value] || null
 })
+
+// 处理头像URL，确保兼容性
+const getAvatarUrl = (avatar: string | undefined): string | undefined => {
+  if (!avatar) return undefined
+
+  // 如果是data URL，不使用（会导致HTTP请求错误），返回undefined使用placeholder
+  if (avatar.startsWith('data:')) {
+    return undefined
+  }
+
+  // 如果是相对路径，添加完整的base URL
+  if (avatar.startsWith('/uploads/')) {
+    return `http://localhost:3000${avatar}`
+  }
+
+  // 如果是完整的HTTP URL，直接返回
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+    return avatar
+  }
+
+  // 其他情况，返回undefined让组件使用placeholder
+  return undefined
+}
 
 // 预览图片列表（使用渐变背景代替）
 const previewImages = computed(() => {
@@ -1168,6 +1252,28 @@ const submitReply = async (destinationIndex: number, commentIndex: number) => {
   }
 }
 
+const deleteComment = async (destinationIndex: number, commentIndex: number) => {
+  const item = destinations.value[destinationIndex]
+  if (!item || !item.commentList) return
+
+  const comment = item.commentList[commentIndex]
+  if (!comment) return
+
+  if (!confirm('确定要删除这条评论吗？')) return
+
+  try {
+    const response = await deleteTravelStoryComment(item._id, comment._id)
+    if (response.success && response.data) {
+      // 更新本地数据
+      const updatedItem = response.data
+      destinations.value[destinationIndex] = updatedItem
+    }
+  } catch (error) {
+    console.error('删除评论失败:', error)
+    alert('删除评论失败，请重试')
+  }
+}
+
 const nextImage = () => {
   if (activeDestination.value) {
     currentImageIndex.value = (currentImageIndex.value + 1) % previewImages.value.length
@@ -1209,27 +1315,16 @@ const onSwiper = (swiper: SwiperType) => {
   activeSwiperSlideIndex.value = swiper.realIndex
 }
 
-// 留言板数据
-const messages = ref([
-  {
-    avatar: '旅',
-    author: '旅行者',
-    time: '2小时前',
-    text: '这里的风景太美了！下次一定要来这里！'
-  },
-  {
-    avatar: '游',
-    author: '游游',
-    time: '1天前',
-    text: '分享了很多实用的旅行 tips，非常有用！'
-  },
-  {
-    avatar: '客',
-    author: '游客123',
-    time: '3天前',
-    text: '期待更多精彩的内容和故事！'
-  }
-])
+// 留言板数据 - 从API获取真实用户数据
+const messages = ref<Array<{
+  avatar: string
+  author: string
+  time: string
+  text: string
+  userId?: string
+  userAvatar?: string
+}>>([])
+const loadingMessages = ref(true)
 
 const newMessage = ref({
   text: ''
@@ -1252,19 +1347,21 @@ const submitMessage = () => {
   if (!isLoggedIn.value) {
     return
   }
-  
+
   if (newMessage.value.text.trim()) {
     const now = new Date()
-    const timeStr = now.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) + ' ' + 
+    const timeStr = now.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) + ' ' +
                     now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-    
+
     messages.value.unshift({
-      avatar: userAvatar.value,
+      avatar: userStore.userInfo?.username?.charAt(0).toUpperCase() || 'U',
       author: userStore.userInfo?.username || '用户',
       time: timeStr,
-      text: newMessage.value.text.trim()
+      text: newMessage.value.text.trim(),
+      userId: userStore.userInfo?.id,
+      userAvatar: userStore.userInfo?.avatar
     })
-    
+
     // 清空表单
     newMessage.value = {
       text: ''
@@ -2598,6 +2695,22 @@ const submitMessage = () => {
   color: white;
   flex-shrink: 0;
   font-size: 0.9rem;
+  overflow: hidden;
+}
+
+.comment-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.comment-user-avatar span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
 }
 
 .comment-content-wrapper {
@@ -2698,6 +2811,16 @@ const submitMessage = () => {
 
 .comment-action-btn.reply-btn:hover {
   background: rgba(99, 102, 241, 0.2);
+}
+
+.comment-action-btn.delete-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.comment-action-btn.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
 }
 
 .comment-action-btn svg {
@@ -3423,6 +3546,33 @@ const submitMessage = () => {
   font-weight: 600;
   flex-shrink: 0;
   color: white;
+  overflow: hidden;
+}
+
+.message-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.message-avatar span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.loading-messages {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+}
+
+.loading-messages p {
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 .message-content {
